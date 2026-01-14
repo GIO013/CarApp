@@ -20,7 +20,7 @@ const isLandscape = SCREEN_WIDTH > SCREEN_HEIGHT;
 
 // OPTION 1: Use URLs (if your images are hosted online)
 // const BACKGROUND_URL = 'YOUR_BACKGROUND_IMAGE_URL';
-// const CAR_FRONT_URL = 'YOUR_FRONT_CAR_IMAGE_URL';
+// const CAR_REAR_URL = 'YOUR_FRONT_CAR_IMAGE_URL';
 // const CAR_SIDE_URL = 'YOUR_SIDE_CAR_IMAGE_URL';
 
 // OPTION 2: Use local images (recommended)
@@ -28,7 +28,7 @@ const isLandscape = SCREEN_WIDTH > SCREEN_HEIGHT;
 // Different backgrounds for portrait and landscape orientations
 const BACKGROUND_PORTRAIT = require('./assets/images/background_portrait.jpg');
 const BACKGROUND_LANDSCAPE = require('./assets/images/background_landscape.jpeg');
-const CAR_FRONT_IMAGE = require('./assets/images/car-front.png');
+const CAR_REAR_IMAGE = require('./assets/images/car-rear.png');
 const CAR_SIDE_IMAGE = require('./assets/images/car-side.png');
 
 const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, isLandscape }) => {
@@ -320,43 +320,43 @@ export default function App() {
               <Gauge
                 value={pitch}
                 color="#00fc22ff"
-                title="PITCH"
-                carImage={CAR_FRONT_IMAGE}
+                title="ROLL"
+                carImage={CAR_REAR_IMAGE}
                 isLandscape={orientation}
               />
             </View>
 
-            {/* Center Info Panel */}
-            <View style={styles.centerPanel}>
-              {/* Large altitude display */}
-              <Text style={[styles.altitude, styles.altitudeLandscape]}>
-                {altitude.toLocaleString()} m
-              </Text>
+          {/* Center Info Panel */}
+          <View style={styles.altitudeAndInfoPanel}>
+            {/* Large altitude display */}
+            <Text style={[styles.altitude, styles.altitudeLandscape]}>
+              {altitude.toLocaleString()} m
+            </Text>
 
-              {/* Bottom info row */}
-              <View style={styles.bottomInfo}>
-                {/* Speed */}
-                <View style={styles.infoBox}>
-                  <View style={styles.iconCircle}>
-                    <Text style={styles.speedIcon}>🏎️</Text>
-                  </View>
-                  <Text style={[styles.infoValue, styles.infoValueLandscape]}>{speed} km/h</Text>
-                  <Text style={styles.infoLabel}>Speed</Text>
+            {/* Bottom info row */}
+            <View style={styles.speedAndTemperatureRow}>
+              {/* Speed */}
+              <View style={styles.infoItemContainer}>
+                <View style={styles.iconCircle}>
+                  <Text style={styles.speedIcon}>🏎️</Text>
                 </View>
+                <Text style={[styles.infoNumberValue, styles.infoValueLandscape]}>{speed} km/h</Text>
+                <Text style={styles.infoLabel}>Speed</Text>
+              </View>
 
-                {/* Vertical divider */}
-                <View style={styles.verticalDivider} />
+              {/* Vertical divider */}
+              <View style={styles.verticalDivider} />
 
-                {/* Temperature */}
-                <View style={styles.infoBox}>
-                  <View style={styles.iconCircle}>
-                    <Text style={styles.tempIcon}>🌡️</Text>
-                  </View>
-                  <Text style={[styles.infoValue, styles.infoValueLandscape]}>
-                    {loadingWeather ? '...' : temperature !== null ? `${temperature > 0 ? '+' : ''}${temperature}°c` : 'N/A'}
-                  </Text>
-                  <Text style={styles.infoLabel}>Outside</Text>
+              {/* Temperature */}
+              <View style={styles.infoItemContainer}>
+                <View style={styles.iconCircle}>
+                  <Text style={styles.tempIcon}>🌡️</Text>
                 </View>
+                <Text style={[styles.infoNumberValue, styles.infoValueLandscape]}>
+                  {loadingWeather ? '...' : temperature !== null ? `${temperature > 0 ? '+' : ''}${temperature}°c` : 'N/A'}
+                </Text>
+                <Text style={styles.infoLabel}>Outside</Text>
+              </View>
               </View>
             </View>
 
@@ -365,7 +365,7 @@ export default function App() {
               <Gauge
                 value={roll}
                 color="#ff5e00ff"
-                title="ROLL"
+                title="pitch"
                 carImage={CAR_SIDE_IMAGE}
                 isLandscape={orientation}
               />
@@ -373,30 +373,30 @@ export default function App() {
           </View>
         ) : (
           /* Portrait layout - new arrangement */
-          <View style={[styles.portraitContainer]}>
+          <View style={[styles.portraitLayoutContainer]}>
             {/* Top: Altitude */}
-            <View style={styles.portraitTop}>
+            <View style={styles.portraitAltitudeSection}>
               <Text style={[styles.altitude, styles.altitudePortrait]}>
                 {altitude.toLocaleString()} m
               </Text>
             </View>
 
             {/* Middle: Pitch and Roll gauges side by side */}
-            <View style={styles.portraitMiddle}>
-              <View style={styles.portraitGaugeContainer}>
+            <View style={styles.portraitGaugesSection}>
+              <View style={styles.portraitGaugeWrapper}>
                 <Gauge
                   value={pitch}
                   color="#00fc22ff"
-                  title="PITCH"
-                  carImage={CAR_FRONT_IMAGE}
+                  title="ROLL"
+                  carImage={CAR_REAR_IMAGE}
                   isLandscape={orientation}
                 />
               </View>
-              <View style={styles.portraitGaugeContainer}>
+              <View style={styles.portraitGaugeWrapper}>
                 <Gauge
                   value={roll}
                   color="#ff5e00ff"
-                  title="ROLL"
+                  title="PITCH"
                   carImage={CAR_SIDE_IMAGE}
                   isLandscape={orientation}
                 />
@@ -404,22 +404,26 @@ export default function App() {
             </View>
 
             {/* Bottom: Speed (left) and Temperature (right) */}
-            <View style={styles.portraitBottom}>
-              <View style={styles.portraitBottomItem}>
-                <View style={styles.iconCircle}>
+            <View style={styles.portraitBottomInfoRow}>
+              <View style={styles.portraitInfoItem}>
+                <View style={[styles.iconCircle, styles.portraitIcon]}>
                   <Text style={styles.speedIcon}>🏎️</Text>
                 </View>
-                <Text style={styles.portraitBottomValue}>{speed} km/h</Text>
-                <Text style={styles.portraitBottomLabel}>Speed</Text>
+                <View style={styles.portraitValueAndLabel}>
+                  <Text style={styles.portraitInfoValue}>{speed} km/h</Text>
+                  <Text style={styles.portraitBottomLabel}>Speed</Text>
+                </View>
               </View>
-              <View style={styles.portraitBottomItem}>
-                <View style={styles.iconCircle}>
+              <View style={styles.portraitInfoItem}>
+                <View style={[styles.iconCircle, styles.portraitIcon]}>
                   <Text style={styles.tempIcon}>🌡️</Text>
                 </View>
-                <Text style={styles.portraitBottomValue}>
-                  {loadingWeather ? '...' : temperature !== null ? `${temperature > 0 ? '+' : ''}${temperature}°c` : 'N/A'}
-                </Text>
-                <Text style={styles.portraitBottomLabel}>Outside</Text>
+                <View style={styles.portraitValueAndLabel}>
+                  <Text style={styles.portraitInfoValue}>
+                    {loadingWeather ? '...' : temperature !== null ? `${temperature > 0 ? '+' : ''}${temperature}°c` : 'N/A'}
+                  </Text>
+                  <Text style={styles.portraitBottomLabel}>Outside</Text>
+                </View>
               </View>
             </View>
           </View>
@@ -470,7 +474,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 8,
     textShadowOffset: { width: 0, height: 2 },
   },
-  centerPanel: {
+  altitudeAndInfoPanel: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 15,
@@ -480,19 +484,19 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#00e5ff',
     textShadowColor: '#00e5ff',
-    textShadowRadius: 25,
+    textShadowRadius: 15,
     textShadowOffset: { width: 0, height: 0 },
     letterSpacing: -1,
   },
   altitudeLandscape: {
-    fontSize: 60,
+    fontSize: 50,
     marginBottom: 18,
   },
   altitudePortrait: {
     fontSize: 50,
-    marginBottom: 15,
+    marginBottom: 18,
   },
-  bottomInfo: {
+  speedAndTemperatureRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -501,7 +505,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 10,
   },
-  infoBox: {
+  infoItemContainer: {
     alignItems: 'center',
     paddingHorizontal: 12,
   },
@@ -520,7 +524,7 @@ const styles = StyleSheet.create({
   tempIcon: {
     fontSize: 18,
   },
-  infoValue: {
+  infoNumberValue: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#fff',
@@ -559,29 +563,29 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   // Portrait layout styles
-  portraitContainer: {
+  portraitLayoutContainer: {
     flex: 1,
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 20,
   },
-  portraitTop: {
+  portraitAltitudeSection: {
     alignItems: 'center',
     marginBottom: 20,
   },
-  portraitMiddle: {
+  portraitGaugesSection: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     width: '100%',
     marginBottom: 20,
   },
-  portraitGaugeContainer: {
+  portraitGaugeWrapper: {
     alignItems: 'center',
     flex: 1,
   },
-  portraitBottom: {
+  portraitBottomInfoRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
@@ -591,18 +595,26 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 20,
   },
-  portraitBottomItem: {
+  portraitInfoItem: {
     alignItems: 'center',
     flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
-  portraitBottomValue: {
+  portraitInfoValue: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#fff',
     textShadowColor: 'rgba(0,255,255,0.4)',
     textShadowRadius: 6,
-    marginTop: 8,
-    marginBottom: 4,
+    marginBottom: 2,
+  },
+  portraitIcon: {
+    marginRight: 8,
+    marginTop: 0,
+  },
+  portraitValueAndLabel: {
+    alignItems: 'center',
   },
   portraitBottomLabel: {
     fontSize: 12,
