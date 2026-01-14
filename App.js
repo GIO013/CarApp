@@ -312,64 +312,118 @@ export default function App() {
       <View style={styles.container}>
         <StatusBar style="light" hidden />
 
-        {/* Main layout - changes based on orientation */}
-        <View style={[styles.mainRow, orientation ? styles.landscape : styles.portrait]}>
-          {/* Left/Top Gauge - Pitch */}
-          <View style={styles.gaugeContainer}>
-            <Gauge 
-              value={pitch} 
-              color="#00fc22ff" 
-              title="PITCH" 
-              carImage={CAR_FRONT_IMAGE}
-              isLandscape={orientation}
-            />
-          </View>
+        {orientation ? (
+          /* Landscape layout - same as before */
+          <View style={[styles.mainRow, styles.landscape]}>
+            {/* Left/Top Gauge - Pitch */}
+            <View style={styles.gaugeContainer}>
+              <Gauge
+                value={pitch}
+                color="#00fc22ff"
+                title="PITCH"
+                carImage={CAR_FRONT_IMAGE}
+                isLandscape={orientation}
+              />
+            </View>
 
-          {/* Center Info Panel */}
-          <View style={styles.centerPanel}>
-            {/* Large altitude display */}
-            <Text style={[styles.altitude, orientation ? styles.altitudeLandscape : styles.altitudePortrait]}>
-              {altitude.toLocaleString()} m
-            </Text>
-            
-            {/* Bottom info row */}
-            <View style={styles.bottomInfo}>
-              {/* Speed */}
-              <View style={styles.infoBox}>
+            {/* Center Info Panel */}
+            <View style={styles.centerPanel}>
+              {/* Large altitude display */}
+              <Text style={[styles.altitude, styles.altitudeLandscape]}>
+                {altitude.toLocaleString()} m
+              </Text>
+
+              {/* Bottom info row */}
+              <View style={styles.bottomInfo}>
+                {/* Speed */}
+                <View style={styles.infoBox}>
+                  <View style={styles.iconCircle}>
+                    <Text style={styles.speedIcon}>🏎️</Text>
+                  </View>
+                  <Text style={[styles.infoValue, styles.infoValueLandscape]}>{speed} km/h</Text>
+                  <Text style={styles.infoLabel}>Speed</Text>
+                </View>
+
+                {/* Vertical divider */}
+                <View style={styles.verticalDivider} />
+
+                {/* Temperature */}
+                <View style={styles.infoBox}>
+                  <View style={styles.iconCircle}>
+                    <Text style={styles.tempIcon}>🌡️</Text>
+                  </View>
+                  <Text style={[styles.infoValue, styles.infoValueLandscape]}>
+                    {loadingWeather ? '...' : temperature !== null ? `${temperature > 0 ? '+' : ''}${temperature}°c` : 'N/A'}
+                  </Text>
+                  <Text style={styles.infoLabel}>Outside</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Right/Bottom Gauge - Roll */}
+            <View style={styles.gaugeContainer}>
+              <Gauge
+                value={roll}
+                color="#ff5e00ff"
+                title="ROLL"
+                carImage={CAR_SIDE_IMAGE}
+                isLandscape={orientation}
+              />
+            </View>
+          </View>
+        ) : (
+          /* Portrait layout - new arrangement */
+          <View style={[styles.portraitContainer]}>
+            {/* Top: Altitude */}
+            <View style={styles.portraitTop}>
+              <Text style={[styles.altitude, styles.altitudePortrait]}>
+                {altitude.toLocaleString()} m
+              </Text>
+            </View>
+
+            {/* Middle: Pitch and Roll gauges side by side */}
+            <View style={styles.portraitMiddle}>
+              <View style={styles.portraitGaugeContainer}>
+                <Gauge
+                  value={pitch}
+                  color="#00fc22ff"
+                  title="PITCH"
+                  carImage={CAR_FRONT_IMAGE}
+                  isLandscape={orientation}
+                />
+              </View>
+              <View style={styles.portraitGaugeContainer}>
+                <Gauge
+                  value={roll}
+                  color="#ff5e00ff"
+                  title="ROLL"
+                  carImage={CAR_SIDE_IMAGE}
+                  isLandscape={orientation}
+                />
+              </View>
+            </View>
+
+            {/* Bottom: Speed (left) and Temperature (right) */}
+            <View style={styles.portraitBottom}>
+              <View style={styles.portraitBottomItem}>
                 <View style={styles.iconCircle}>
                   <Text style={styles.speedIcon}>🏎️</Text>
                 </View>
-                <Text style={[styles.infoValue, orientation && styles.infoValueLandscape]}>{speed} km/h</Text>
-                <Text style={styles.infoLabel}>Speed</Text>
+                <Text style={styles.portraitBottomValue}>{speed} km/h</Text>
+                <Text style={styles.portraitBottomLabel}>Speed</Text>
               </View>
-              
-              {/* Vertical divider */}
-              <View style={styles.verticalDivider} />
-              
-              {/* Temperature */}
-              <View style={styles.infoBox}>
+              <View style={styles.portraitBottomItem}>
                 <View style={styles.iconCircle}>
                   <Text style={styles.tempIcon}>🌡️</Text>
                 </View>
-                <Text style={[styles.infoValue, orientation && styles.infoValueLandscape]}>
+                <Text style={styles.portraitBottomValue}>
                   {loadingWeather ? '...' : temperature !== null ? `${temperature > 0 ? '+' : ''}${temperature}°c` : 'N/A'}
                 </Text>
-                <Text style={styles.infoLabel}>Outside</Text>
+                <Text style={styles.portraitBottomLabel}>Outside</Text>
               </View>
             </View>
           </View>
-
-          {/* Right/Bottom Gauge - Roll */}
-          <View style={styles.gaugeContainer}>
-            <Gauge 
-              value={roll} 
-              color="#ff5e00ff" 
-              title="ROLL" 
-              carImage={CAR_SIDE_IMAGE}
-              isLandscape={orientation}
-            />
-          </View>
-        </View>
+        )}
 
         {/* Calibrate Button at bottom */}
         <TouchableOpacity style={styles.calibrateButton} onPress={calibrate}>
@@ -503,5 +557,56 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: 'bold',
     letterSpacing: 1,
+  },
+  // Portrait layout styles
+  portraitContainer: {
+    flex: 1,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 20,
+  },
+  portraitTop: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  portraitMiddle: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 20,
+  },
+  portraitGaugeContainer: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  portraitBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    width: '100%',
+    backgroundColor: 'rgba(0, 0, 0, 0.27)',
+    borderRadius: 12,
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+  },
+  portraitBottomItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  portraitBottomValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+    textShadowColor: 'rgba(0,255,255,0.4)',
+    textShadowRadius: 6,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  portraitBottomLabel: {
+    fontSize: 12,
+    color: '#999',
+    letterSpacing: 0.3,
   },
 });
