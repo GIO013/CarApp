@@ -155,17 +155,17 @@ const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, 
         {/* Car icon - centered and rotating */}
         <SvgImage
           href={carImage}
-          x={center - size * 0.25}
-          y={center - size * 0.25}
-          width={size * 0.5}
-          height={size * 0.5}
+          x={center - size * 0.35}  // Center horizontally: center - (width/2)
+          y={center - size * 0.35}  // Center vertically: center - (height/2)
+          width={size * 0.7}
+          height={size * 0.7}
           preserveAspectRatio="xMidYMid meet"
           opacity={0.95}
           transform={`rotate(${carTilt} ${center} ${center})`}
         />
 
         {/* Center value display */}
-        <SvgText 
+        {/* <SvgText 
           x={center} 
           y={center + 8} 
           fontSize={isLandscape ? "40" : "36"} 
@@ -174,7 +174,7 @@ const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, 
           fontWeight="bold"
         >
           {value > 0 ? '+' : ''}{Math.round(value)}°
-        </SvgText>
+        </SvgText> */}
       </Svg>
     </View>
   );
@@ -212,7 +212,9 @@ export default function App() {
   // Swap sensors in landscape mode: pitch sensor controls roll gauge, roll sensor controls pitch gauge
   const pitch = Math.round((orientation ? rawRoll : rawPitch) - (orientation ? rollOffset : pitchOffset));
   const roll = Math.round((orientation ? rawPitch : rawRoll) - (orientation ? pitchOffset : rollOffset));
-
+// Swap sensors in landscape mode: pitch sensor controls roll gauge, roll sensor controls pitch gauge
+  const pitch_land  = Math.round((orientation ? rawRoll : rawPitch) - (orientation ? rollOffset : pitchOffset));
+  const roll_land = - Math.round((orientation ? rawPitch : rawRoll) - (orientation ? pitchOffset : rollOffset));
   // Allow both portrait and landscape
   useEffect(() => {
     async function unlockOrientation() {
@@ -363,9 +365,9 @@ export default function App() {
             {/* Right/Bottom Gauge - Roll */}
             <View style={styles.gaugeContainer}>
               <Gauge
-                value={roll}
+                value={roll_land}
                 color="#ff5e00ff"
-                title="pitch"
+                title="PITCH"
                 carImage={CAR_SIDE_IMAGE}
                 isLandscape={orientation}
               />
@@ -385,7 +387,7 @@ export default function App() {
             <View style={styles.portraitGaugesSection}>
               <View style={styles.portraitGaugeWrapper}>
                 <Gauge
-                  value={pitch}
+                  value={pitch_land}
                   color="#00fc22ff"
                   title="ROLL"
                   carImage={CAR_REAR_IMAGE}
