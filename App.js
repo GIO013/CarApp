@@ -26,8 +26,8 @@ const isLandscape = SCREEN_WIDTH > SCREEN_HEIGHT;
 // OPTION 2: Use local images (recommended)
 // Put your images in: /assets/images/
 // Different backgrounds for portrait and landscape orientations
-const BACKGROUND_PORTRAIT = require('./assets/images/background.jpeg');
-const BACKGROUND_LANDSCAPE = require('./assets/images/background.png');
+const BACKGROUND_PORTRAIT = require('./assets/images/background_portrait.jpg');
+const BACKGROUND_LANDSCAPE = require('./assets/images/background_landscape.jpeg');
 const CAR_FRONT_IMAGE = require('./assets/images/car-front.png');
 const CAR_SIDE_IMAGE = require('./assets/images/car-side.png');
 
