@@ -208,8 +208,9 @@ export default function App() {
   //   })();
   // }, []);
 
-  const pitch = Math.round(rawPitch - pitchOffset);
-  const roll = Math.round(rawRoll - rollOffset);
+  // Swap sensors in landscape mode: pitch sensor controls roll gauge, roll sensor controls pitch gauge
+  const pitch = Math.round((orientation ? rawRoll : rawPitch) - (orientation ? rollOffset : pitchOffset));
+  const roll = Math.round((orientation ? rawPitch : rawRoll) - (orientation ? pitchOffset : rollOffset));
 
   // Allow both portrait and landscape
   useEffect(() => {
