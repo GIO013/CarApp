@@ -16,7 +16,8 @@
     "production": {
       "android": {
         "buildType": "apk"
-      }
+      },
+      "credentialsSource": "remote"
     }
   },
   "submit": {
