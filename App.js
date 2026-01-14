@@ -26,7 +26,7 @@ const isLandscape = SCREEN_WIDTH > SCREEN_HEIGHT;
 // OPTION 2: Use local PNG images (recommended)
 // Put your images in: /assets/images/
 // Background image loaded dynamically to avoid AAPT compilation issues
-const BACKGROUND_IMAGE = require('./assets/images/background.JPEG');
+const BACKGROUND_IMAGE = require('./assets/images/background.jpeg');
 const CAR_FRONT_IMAGE = require('./assets/images/car-front.png');
 const CAR_SIDE_IMAGE = require('./assets/images/car-side.png');
 
@@ -197,7 +197,7 @@ export default function App() {
   //   (async () => {
   //     try {
   //       // Use require.resolve to get the path without bundling as Android resource
-  //       const imageModule = require.resolve('./assets/images/background.JPEG');
+  //       const imageModule = require.resolve('./assets/images/background.jpeg');
   //       const asset = Asset.fromModule(imageModule);
   //       await asset.downloadAsync();
   //       setBackgroundUri(asset.localUri || asset.uri);

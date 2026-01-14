@@ -15,7 +15,7 @@
       "backgroundColor": "#000000"
     },
     "assetBundlePatterns": [
-      "assets/images/background.JPEG",
+      "assets/images/background.jpeg",
       "assets/images/car-front.png",
       "assets/images/car-side.png",
       "assets/icon.png",
