@@ -189,24 +189,24 @@ export default function App() {
   const [temperature, setTemperature] = useState(null);
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [orientation, setOrientation] = useState(isLandscape);
-  const [backgroundUri, setBackgroundUri] = useState(null);
+  // const [backgroundUri, setBackgroundUri] = useState(null);
 
   // Load background image using Asset to avoid AAPT compilation issues
   // Using require.resolve to get the module path without bundling it as a resource
-  useEffect(() => {
-    (async () => {
-      try {
-        // Use require.resolve to get the path without bundling as Android resource
-        const imageModule = require.resolve('./assets/images/background.png');
-        const asset = Asset.fromModule(imageModule);
-        await asset.downloadAsync();
-        setBackgroundUri(asset.localUri || asset.uri);
-      } catch (error) {
-        console.log('Background image load error:', error);
-        // Fallback to black background if image fails to load
-      }
-    })();
-  }, []);
+  // useEffect(() => {
+  //   (async () => {
+  //     try {
+  //       // Use require.resolve to get the path without bundling as Android resource
+  //       const imageModule = require.resolve('./assets/images/background.png');
+  //       const asset = Asset.fromModule(imageModule);
+  //       await asset.downloadAsync();
+  //       setBackgroundUri(asset.localUri || asset.uri);
+  //     } catch (error) {
+  //       console.log('Background image load error:', error);
+  //       // Fallback to black background if image fails to load
+  //     }
+  //   })();
+  // }, []);
 
   const pitch = Math.round(rawPitch - pitchOffset);
   const roll = Math.round(rawRoll - rollOffset);
@@ -304,7 +304,7 @@ export default function App() {
   return (
     <ImageBackground 
       source={BACKGROUND_IMAGE}
-      style={[styles.background, !backgroundUri && { backgroundColor: '#000000' }]} 
+      style={styles.background} 
       resizeMode="cover"
     >
       <View style={styles.container}>
