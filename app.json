@@ -1,8 +1,11 @@
 {
   "expo": {
-    "name": "Car Dashboard",
-    "slug": "car-dashboard",
-    "version": "1.0.0",
+  "name": "Car Dashboard",
+  "slug": "CarDashboardApp",
+  "version": "1.0.0",
+  "cli": {
+    "appVersionSource": "remote"
+  },
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
