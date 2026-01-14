@@ -23,10 +23,11 @@ const isLandscape = SCREEN_WIDTH > SCREEN_HEIGHT;
 // const CAR_FRONT_URL = 'YOUR_FRONT_CAR_IMAGE_URL';
 // const CAR_SIDE_URL = 'YOUR_SIDE_CAR_IMAGE_URL';
 
-// OPTION 2: Use local PNG images (recommended)
+// OPTION 2: Use local images (recommended)
 // Put your images in: /assets/images/
-// Background image loaded dynamically to avoid AAPT compilation issues
-const BACKGROUND_IMAGE = require('./assets/images/background.jpeg');
+// Different backgrounds for portrait and landscape orientations
+const BACKGROUND_PORTRAIT = require('./assets/images/background.jpeg');
+const BACKGROUND_LANDSCAPE = require('./assets/images/background.png');
 const CAR_FRONT_IMAGE = require('./assets/images/car-front.png');
 const CAR_SIDE_IMAGE = require('./assets/images/car-side.png');
 
@@ -303,9 +304,9 @@ export default function App() {
   };
 
   return (
-    <ImageBackground 
-      source={BACKGROUND_IMAGE}
-      style={styles.background} 
+    <ImageBackground
+      source={orientation ? BACKGROUND_LANDSCAPE : BACKGROUND_PORTRAIT}
+      style={styles.background}
       resizeMode="cover"
     >
       <View style={styles.container}>
