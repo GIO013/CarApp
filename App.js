@@ -254,7 +254,7 @@ export default function App() {
 
   // Accelerometer
   useEffect(() => {
-    Accelerometer.setUpdateInterval(100);
+    Accelerometer.setUpdateInterval(200);
     const subscription = Accelerometer.addListener(({ x, y, z }) => {
       const newPitch = Math.atan2(-x, Math.sqrt(y * y + z * z)) * (180 / Math.PI);
       const newRoll = Math.atan2(y, z) * (180 / Math.PI);
