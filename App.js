@@ -33,7 +33,7 @@ const CAR_SIDE_IMAGE = require('./assets/images/car-side.png');
 
 const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, isLandscape }) => {
   // Much smaller gauges
-  const size = isLandscape ? SCREEN_HEIGHT * 0.35 : SCREEN_WIDTH * 0.32;
+  const size = isLandscape ? SCREEN_HEIGHT * 0.35 : SCREEN_WIDTH * 0.42; // Increased from 0.32 to 0.42 for larger portrait gauges
   const center = size / 2;
   const radius = size * 0.36;
   const circumference = 2 * Math.PI * radius;
@@ -374,38 +374,38 @@ export default function App() {
             </View>
           </View>
         ) : (
-          /* Portrait layout - new arrangement */
+          /* Portrait layout - four separate sections */
           <View style={[styles.portraitLayoutContainer]}>
-            {/* Top: Altitude */}
+            {/* Section 1: Altitude */}
             <View style={styles.portraitAltitudeSection}>
               <Text style={[styles.altitude, styles.altitudePortrait]}>
                 {altitude.toLocaleString()} m
               </Text>
             </View>
 
-            {/* Middle: Pitch and Roll gauges side by side */}
-            <View style={styles.portraitGaugesSection}>
-              <View style={styles.portraitGaugeWrapper}>
-                <Gauge
-                  value={pitch_land}
-                  color="#00fc22ff"
-                  title="ROLL"
-                  carImage={CAR_REAR_IMAGE}
-                  isLandscape={orientation}
-                />
-              </View>
-              <View style={styles.portraitGaugeWrapper}>
-                <Gauge
-                  value={roll}
-                  color="#ff5e00ff"
-                  title="PITCH"
-                  carImage={CAR_SIDE_IMAGE}
-                  isLandscape={orientation}
-                />
-              </View>
+            {/* Section 2: Roll Gauge */}
+            <View style={styles.portraitRollSection}>
+              <Gauge
+                value={roll}
+                color="#ff5e00ff"
+                title="ROLL"
+                carImage={CAR_SIDE_IMAGE}
+                isLandscape={orientation}
+              />
             </View>
 
-            {/* Bottom: Speed (left) and Temperature (right) */}
+            {/* Section 2: Pitch Gauge */}
+            <View style={styles.portraitPitchSection}>
+              <Gauge
+                value={pitch_land}
+                color="#00fc22ff"
+                title="PITCH"
+                carImage={CAR_REAR_IMAGE}
+                isLandscape={orientation}
+              />
+            </View>
+
+            {/* Section 3: Speed and Temperature */}
             <View style={styles.portraitBottomInfoRow}>
               <View style={styles.portraitInfoItem}>
                 <View style={[styles.iconCircle, styles.portraitIcon]}>
@@ -572,16 +572,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 20,
   },
+  // Four separate sections for portrait mode
   portraitAltitudeSection: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginTop: 20,
+    marginBottom: 10,
   },
-  portraitGaugesSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+  portraitRollSection: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    width: '100%',
-    marginBottom: 20,
+    // marginTop: 10,
+    // marginBottom: 10,
+  },
+  portraitPitchSection: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    // marginTop: 10,
+    // marginBottom: 10,
   },
   portraitGaugeWrapper: {
     alignItems: 'center',
