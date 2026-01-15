@@ -33,7 +33,7 @@ const CAR_SIDE_IMAGE = require('./assets/images/car-side.png');
 
 const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, isLandscape }) => {
   // Much smaller gauges
-  const size = isLandscape ? SCREEN_HEIGHT * 0.35 : SCREEN_WIDTH * 0.42; // Increased from 0.32 to 0.42 for larger portrait gauges
+  const size = isLandscape ? SCREEN_HEIGHT * 0.35 : SCREEN_WIDTH * 0.32;
   const center = size / 2;
   const radius = size * 0.36;
   const circumference = 2 * Math.PI * radius;
@@ -210,11 +210,11 @@ export default function App() {
   // }, []);
 
   // Swap sensors in landscape mode: pitch sensor controls roll gauge, roll sensor controls pitch gauge
-  const pitch = Math.round((orientation ? rawRoll : rawPitch) - (orientation ? rollOffset : pitchOffset));
-  const roll = Math.round((orientation ? rawPitch : rawRoll) - (orientation ? pitchOffset : rollOffset));
+  const roll = Math.round((orientation ? rawRoll : rawPitch) - (orientation ? rollOffset : pitchOffset));
+  const pitch = Math.round((orientation ? rawPitch : rawRoll) - (orientation ? pitchOffset : rollOffset));
 // Swap sensors in landscape mode: pitch sensor controls roll gauge, roll sensor controls pitch gauge
-  const pitch_land  = Math.round((orientation ? rawRoll : rawPitch) - (orientation ? rollOffset : pitchOffset));
-  const roll_land = - Math.round((orientation ? rawPitch : rawRoll) - (orientation ? pitchOffset : rollOffset));
+  const roll_land  = Math.round((orientation ? rawRoll : rawPitch) - (orientation ? rollOffset : pitchOffset));
+  const pitch_land = - Math.round((orientation ? rawPitch : rawRoll) - (orientation ? pitchOffset : rollOffset));
   // Allow both portrait and landscape
   useEffect(() => {
     async function unlockOrientation() {
@@ -239,7 +239,7 @@ export default function App() {
   const calibrate = () => {
     setPitchOffset(rawPitch);
     setRollOffset(rawRoll);
-    Alert.alert('Calibrated!', 'Current position is now 0° for pitch and roll.');
+    // Alert.alert('Calibrated!', 'Current position is now 0° for pitch and roll.');
   };
 
   // Request location permission
@@ -320,10 +320,10 @@ export default function App() {
             {/* Left/Top Gauge - Pitch */}
             <View style={styles.gaugeContainer}>
               <Gauge
-                value={pitch}
+                value={pitch_land}
                 color="#00fc22ff"
-                title="ROLL"
-                carImage={CAR_REAR_IMAGE}
+                title="PITCH"
+                carImage={CAR_SIDE_IMAGE}
                 isLandscape={orientation}
               />
             </View>
@@ -367,8 +367,8 @@ export default function App() {
               <Gauge
                 value={roll_land}
                 color="#ff5e00ff"
-                title="PITCH"
-                carImage={CAR_SIDE_IMAGE}
+                title="ROLL"
+                carImage={CAR_REAR_IMAGE}
                 isLandscape={orientation}
               />
             </View>
@@ -389,7 +389,7 @@ export default function App() {
                 value={roll}
                 color="#ff5e00ff"
                 title="ROLL"
-                carImage={CAR_SIDE_IMAGE}
+                carImage={CAR_REAR_IMAGE}
                 isLandscape={orientation}
               />
             </View>
@@ -397,10 +397,10 @@ export default function App() {
             {/* Section 2: Pitch Gauge */}
             <View style={styles.portraitPitchSection}>
               <Gauge
-                value={pitch_land}
+                value={pitch}
                 color="#00fc22ff"
                 title="PITCH"
-                carImage={CAR_REAR_IMAGE}
+                carImage={CAR_SIDE_IMAGE}
                 isLandscape={orientation}
               />
             </View>
@@ -582,11 +582,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    // marginTop: 10,
+    marginTop: 10,
     // marginBottom: 10,
   },
   portraitPitchSection: {
-    flex: 1,
+    // flex: 4,
     justifyContent: 'center',
     alignItems: 'center',
     // marginTop: 10,
