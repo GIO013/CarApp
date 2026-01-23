@@ -567,23 +567,24 @@ const styles = StyleSheet.create({
   // Portrait layout styles
   portraitLayoutContainer: {
     flex: 1,
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 20,
+    borderColor: 'red',
   },
   // Four separate sections for portrait mode
   portraitAltitudeSection: {
     alignItems: 'center',
-    marginTop: 20,
     marginBottom: 10,
+    borderColor: 'yellow',
+    marginTop: 20
   },
   portraitRollSection: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
-    // marginBottom: 10,
+    borderColor: 'green',
+    marginTop: '28%'
+
   },
   portraitPitchSection: {
     // flex: 4,
@@ -591,6 +592,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     // marginTop: 10,
     // marginBottom: 10,
+    borderColor: 'blue',
+    marginTop: '35%'
+
   },
   portraitGaugeWrapper: {
     alignItems: 'center',
@@ -605,6 +609,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 15,
     paddingHorizontal: 20,
+    borderColor: 'purple',
+    position: 'absolute',
+    bottom: 0,
   },
   portraitInfoItem: {
     alignItems: 'center',
