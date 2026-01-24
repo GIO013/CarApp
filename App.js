@@ -7,175 +7,165 @@ import {
   TouchableOpacity,
   Alert,
   ImageBackground,
+  Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
 import { Accelerometer } from 'expo-sensors';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import { Asset } from 'expo-asset';
 import Svg, { Circle, Line, Text as SvgText, Image as SvgImage, Defs, RadialGradient, Stop } from 'react-native-svg';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const isLandscape = SCREEN_WIDTH > SCREEN_HEIGHT;
 
-// OPTION 1: Use URLs (if your images are hosted online)
-// const BACKGROUND_URL = 'YOUR_BACKGROUND_IMAGE_URL';
-// const CAR_REAR_URL = 'YOUR_FRONT_CAR_IMAGE_URL';
-// const CAR_SIDE_URL = 'YOUR_SIDE_CAR_IMAGE_URL';
-
-// OPTION 2: Use local images (recommended)
-// Put your images in: /assets/images/
-// Different backgrounds for portrait and landscape orientations
+// Background images
 const BACKGROUND_PORTRAIT = require('./assets/images/background_portrait.jpg');
 const BACKGROUND_LANDSCAPE = require('./assets/images/background_landscape.jpeg');
+
+// Car images
 const CAR_REAR_IMAGE = require('./assets/images/car-rear.png');
 const CAR_SIDE_IMAGE = require('./assets/images/car-side.png');
 
+// New background images for gauges and icons
+const ROUND_BG = require('./assets/images/round.png');
+const SPEED_BG = require('./assets/images/speed.png');
+const TEMP_BG = require('./assets/images/temperature.png');
+
 const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, isLandscape }) => {
-  // Much smaller gauges
   const size = isLandscape ? SCREEN_HEIGHT * 0.35 : SCREEN_WIDTH * 0.32;
   const center = size / 2;
   const radius = size * 0.36;
   const circumference = 2 * Math.PI * radius;
   
-  // Progress for the arc (bottom half circle)
   const normalizedValue = Math.max(-max, Math.min(max, value));
-  const progress = (normalizedValue + max) / (2 * max); // 0 to 1
+  const progress = (normalizedValue + max) / (2 * max);
   
-  // Arc covers bottom 180 degrees
   const arcLength = circumference / 2;
   const offset = arcLength * (1 - progress);
   
   const carTilt = value * 1.5;
 
-  // Tick marks positions
   const ticks = [-40, -30, -20, -10, 10, 20, 30, 40];
   const majorTicks = [-30, -20, -10, 10, 20, 30];
 
   return (
     <View style={{ alignItems: 'center' }}>
-      {/* Title above gauge */}
       <Text style={[styles.gaugeTitle, { color, fontSize: isLandscape ? 18 : 16 }]}>
         {value > 0 ? '+' : ''}{Math.round(value)}° {title}
       </Text>
 
-      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <Defs>
-          <RadialGradient id={`glow-${title}`} cx="50%" cy="50%">
-            <Stop offset="0%" stopColor={color} stopOpacity="0.5" />
-            <Stop offset="100%" stopColor={color} stopOpacity="0" />
-          </RadialGradient>
-        </Defs>
-
-        {/* Progress arc glow */}
-        <Circle
-          cx={center}
-          cy={center}
-          r={radius}
-          fill="none"
-          stroke={color}
-          strokeWidth={28}
-          strokeDasharray={`${arcLength} ${circumference}`}
-          strokeDashoffset={circumference * 0.25 + offset}
-          strokeLinecap="round"
-          opacity={0.25}
+      <View style={{ position: 'relative', width: size, height: size }}>
+        {/* Round background image behind gauge */}
+        <Image
+          source={ROUND_BG}
+          style={{
+            position: 'absolute',
+            width: size,
+            height: size,
+            opacity: 0.8,
+          }}
+          resizeMode="contain"
         />
 
-        {/* Progress arc main */}
-        <Circle
-          cx={center}
-          cy={center}
-          r={radius}
-          fill="none"
-          stroke={color}
-          strokeWidth={20}
-          strokeDasharray={`${arcLength} ${circumference}`}
-          strokeDashoffset={circumference * 0.25 + offset}
-          strokeLinecap="round"
-          opacity={0.95}
-        />
+        <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          <Defs>
+            <RadialGradient id={`glow-${title}`} cx="50%" cy="50%">
+              <Stop offset="0%" stopColor={color} stopOpacity="0.5" />
+              <Stop offset="100%" stopColor={color} stopOpacity="0" />
+            </RadialGradient>
+          </Defs>
 
-        {/* Glow effect behind gauge */}
-        <Circle
-          cx={center}
-          cy={center}
-          r={radius + 25}
-          fill={`url(#glow-${title})`}
-          opacity={0.2}
-        />
+          <Circle
+            cx={center}
+            cy={center}
+            r={radius}
+            fill="none"
+            stroke={color}
+            strokeWidth={28}
+            strokeDasharray={`${arcLength} ${circumference}`}
+            strokeDashoffset={circumference * 0.25 + offset}
+            strokeLinecap="round"
+            opacity={0.25}
+          />
 
-        {/* Tick marks and labels OUTSIDE the circle */}
-        {ticks.map((deg) => {
-          const angle = (deg / max) * 90; // Map to -90 to +90 degrees
-          const rad = ((angle - 90) * Math.PI) / 180; // Start from bottom
-          const innerRadius = radius + 18;
-          const outerRadius = radius + 35;
-          const labelRadius = radius + 50;
-          
-          const x1 = center + innerRadius * Math.cos(rad);
-          const y1 = center + innerRadius * Math.sin(rad);
-          const x2 = center + outerRadius * Math.cos(rad);
-          const y2 = center + outerRadius * Math.sin(rad);
-          const labelX = center + labelRadius * Math.cos(rad);
-          const labelY = center + labelRadius * Math.sin(rad);
-          
-          const isMajor = majorTicks.includes(deg);
-          
-          return (
-            <React.Fragment key={deg}>
-              {/* Tick line */}
-              <Line
-                x1={x1}
-                y1={y1}
-                x2={x2}
-                y2={y2}
-                stroke={color}
-                strokeWidth={isMajor ? 4 : 2.5}
-                opacity={0.8}
-              />
-              {/* Degree labels for major ticks */}
-              {isMajor && (
-                <SvgText
-                  x={labelX}
-                  y={labelY}
-                  fontSize="11"
-                  fill={color}
-                  textAnchor="middle"
-                  alignmentBaseline="middle"
-                  opacity={0.7}
-                  fontWeight="400"
-                >
-                  {deg > 0 ? `-${deg}°` : `${Math.abs(deg)}°`}
-                </SvgText>
-              )}
-            </React.Fragment>
-          );
-        })}
+          <Circle
+            cx={center}
+            cy={center}
+            r={radius}
+            fill="none"
+            stroke={color}
+            strokeWidth={20}
+            strokeDasharray={`${arcLength} ${circumference}`}
+            strokeDashoffset={circumference * 0.25 + offset}
+            strokeLinecap="round"
+            opacity={0.95}
+          />
 
-        {/* Car icon - centered and rotating */}
-        <SvgImage
-          href={carImage}
-          x={center - size * 0.35}  // Center horizontally: center - (width/2)
-          y={center - size * 0.35}  // Center vertically: center - (height/2)
-          width={size * 0.7}
-          height={size * 0.7}
-          preserveAspectRatio="xMidYMid meet"
-          opacity={0.95}
-          transform={`rotate(${carTilt} ${center} ${center})`}
-        />
+          <Circle
+            cx={center}
+            cy={center}
+            r={radius + 25}
+            fill={`url(#glow-${title})`}
+            opacity={0.2}
+          />
 
-        {/* Center value display */}
-        {/* <SvgText 
-          x={center} 
-          y={center + 8} 
-          fontSize={isLandscape ? "40" : "36"} 
-          fill="#fff" 
-          textAnchor="middle" 
-          fontWeight="bold"
-        >
-          {value > 0 ? '+' : ''}{Math.round(value)}°
-        </SvgText> */}
-      </Svg>
+          {ticks.map((deg) => {
+            const angle = (deg / max) * 90;
+            const rad = ((angle - 90) * Math.PI) / 180;
+            const innerRadius = radius + 18;
+            const outerRadius = radius + 35;
+            const labelRadius = radius + 50;
+            
+            const x1 = center + innerRadius * Math.cos(rad);
+            const y1 = center + innerRadius * Math.sin(rad);
+            const x2 = center + outerRadius * Math.cos(rad);
+            const y2 = center + outerRadius * Math.sin(rad);
+            const labelX = center + labelRadius * Math.cos(rad);
+            const labelY = center + labelRadius * Math.sin(rad);
+            
+            const isMajor = majorTicks.includes(deg);
+            
+            return (
+              <React.Fragment key={deg}>
+                <Line
+                  x1={x1}
+                  y1={y1}
+                  x2={x2}
+                  y2={y2}
+                  stroke={color}
+                  strokeWidth={isMajor ? 4 : 2.5}
+                  opacity={0.8}
+                />
+                {isMajor && (
+                  <SvgText
+                    x={labelX}
+                    y={labelY}
+                    fontSize="11"
+                    fill={color}
+                    textAnchor="middle"
+                    alignmentBaseline="middle"
+                    opacity={0.7}
+                    fontWeight="400"
+                  >
+                    {deg > 0 ? `-${deg}°` : `${Math.abs(deg)}°`}
+                  </SvgText>
+                )}
+              </React.Fragment>
+            );
+          })}
+
+          <SvgImage
+            href={carImage}
+            x={center - size * 0.35}
+            y={center - size * 0.35}
+            width={size * 0.7}
+            height={size * 0.7}
+            preserveAspectRatio="xMidYMid meet"
+            opacity={0.95}
+            transform={`rotate(${carTilt} ${center} ${center})`}
+          />
+        </Svg>
+      </View>
     </View>
   );
 };
@@ -190,39 +180,18 @@ export default function App() {
   const [temperature, setTemperature] = useState(null);
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [orientation, setOrientation] = useState(isLandscape);
-  // const [backgroundUri, setBackgroundUri] = useState(null);
 
-  // Load background image using Asset to avoid AAPT compilation issues
-  // Using require.resolve to get the module path without bundling it as a resource
-  // useEffect(() => {
-  //   (async () => {
-  //     try {
-  //       // Use require.resolve to get the path without bundling as Android resource
-  //       const imageModule = require.resolve('./assets/images/background.jpeg');
-  //       const asset = Asset.fromModule(imageModule);
-  //       await asset.downloadAsync();
-  //       setBackgroundUri(asset.localUri || asset.uri);
-  //     } catch (error) {
-  //       console.log('Background image load error:', error);
-  //       // Fallback to black background if image fails to load
-  //     }
-  //   })();
-  // }, []);
-
-  // Swap sensors in landscape mode: pitch sensor controls roll gauge, roll sensor controls pitch gauge
   const roll = Math.round((orientation ? rawRoll : rawPitch) - (orientation ? rollOffset : pitchOffset));
   const pitch = Math.round((orientation ? rawPitch : rawRoll) - (orientation ? pitchOffset : rollOffset));
-// Swap sensors in landscape mode: pitch sensor controls roll gauge, roll sensor controls pitch gauge
   const roll_land  = Math.round((orientation ? rawRoll : rawPitch) - (orientation ? rollOffset : pitchOffset));
   const pitch_land = - Math.round((orientation ? rawPitch : rawRoll) - (orientation ? pitchOffset : rollOffset));
-  // Allow both portrait and landscape
+
   useEffect(() => {
     async function unlockOrientation() {
       await ScreenOrientation.unlockAsync();
     }
     unlockOrientation();
     
-    // Listen for orientation changes
     const subscription = ScreenOrientation.addOrientationChangeListener((event) => {
       const { orientationInfo } = event;
       setOrientation(
@@ -239,10 +208,8 @@ export default function App() {
   const calibrate = () => {
     setPitchOffset(rawPitch);
     setRollOffset(rawRoll);
-    // Alert.alert('Calibrated!', 'Current position is now 0° for pitch and roll.');
   };
 
-  // Request location permission
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -252,7 +219,6 @@ export default function App() {
     })();
   }, []);
 
-  // Accelerometer
   useEffect(() => {
     Accelerometer.setUpdateInterval(200);
     const subscription = Accelerometer.addListener(({ x, y, z }) => {
@@ -264,7 +230,6 @@ export default function App() {
     return () => subscription.remove();
   }, []);
 
-  // Location (altitude & speed)
   useEffect(() => {
     const updateLocation = async () => {
       try {
@@ -274,7 +239,6 @@ export default function App() {
         setAltitude(Math.round(loc.coords.altitude || 0));
         setSpeed(Math.round((loc.coords.speed || 0) * 3.6));
         
-        // Fetch weather data based on current location
         fetchWeather(loc.coords.latitude, loc.coords.longitude);
       } catch (e) {
         console.log('Location error:', e);
@@ -285,10 +249,8 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch weather from OpenWeatherMap API
   const fetchWeather = async (lat, lon) => {
     try {
-      // Using OpenWeatherMap free API (no key needed for basic access)
       const response = await fetch(
         `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&temperature_unit=celsius`
       );
@@ -315,58 +277,63 @@ export default function App() {
         <StatusBar style="light" hidden />
 
         {orientation ? (
-          /* Landscape layout - same as before */
           <View style={[styles.mainRow, styles.landscape]}>
-            {/* Left/Top Gauge - Pitch */}
             <View style={styles.gaugeContainer}>
               <Gauge
                 value={pitch_land}
-                color="#00fc22ff"
+                color="#7cfc00"
                 title="PITCH"
                 carImage={CAR_SIDE_IMAGE}
                 isLandscape={orientation}
               />
             </View>
 
-          {/* Center Info Panel */}
-          <View style={styles.altitudeAndInfoPanel}>
-            {/* Large altitude display */}
-            <Text style={[styles.altitude, styles.altitudeLandscape]}>
-              {altitude.toLocaleString()} m
-            </Text>
+            <View style={styles.altitudeAndInfoPanel}>
+              <Text style={[styles.altitude, styles.altitudeLandscape]}>
+                {altitude.toLocaleString()} m
+              </Text>
 
-            {/* Bottom info row */}
-            <View style={styles.speedAndTemperatureRow}>
-              {/* Speed */}
-              <View style={styles.infoItemContainer}>
-                <View style={styles.iconCircle}>
-                  <Text style={styles.speedIcon}>🏎️</Text>
+              <View style={styles.speedAndTemperatureRow}>
+                <View style={styles.infoItemContainer}>
+                  <View style={{ position: 'relative' }}>
+                    <Image
+                      source={SPEED_BG}
+                      style={styles.iconBackground}
+                      resizeMode="contain"
+                    />
+                    <View style={styles.iconCircle}>
+                      <Text style={styles.speedIcon}>🏎️</Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.infoNumberValue, styles.infoValueLandscape]}>{speed} km/h</Text>
+                  <Text style={styles.infoLabel}>Speed</Text>
                 </View>
-                <Text style={[styles.infoNumberValue, styles.infoValueLandscape]}>{speed} km/h</Text>
-                <Text style={styles.infoLabel}>Speed</Text>
-              </View>
 
-              {/* Vertical divider */}
-              <View style={styles.verticalDivider} />
+                <View style={styles.verticalDivider} />
 
-              {/* Temperature */}
-              <View style={styles.infoItemContainer}>
-                <View style={styles.iconCircle}>
-                  <Text style={styles.tempIcon}>🌡️</Text>
+                <View style={styles.infoItemContainer}>
+                  <View style={{ position: 'relative' }}>
+                    <Image
+                      source={TEMP_BG}
+                      style={styles.iconBackground}
+                      resizeMode="contain"
+                    />
+                    <View style={styles.iconCircle}>
+                      <Text style={styles.tempIcon}>🌡️</Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.infoNumberValue, styles.infoValueLandscape]}>
+                    {loadingWeather ? '...' : temperature !== null ? `${temperature > 0 ? '+' : ''}${temperature}°c` : 'N/A'}
+                  </Text>
+                  <Text style={styles.infoLabel}>Outside</Text>
                 </View>
-                <Text style={[styles.infoNumberValue, styles.infoValueLandscape]}>
-                  {loadingWeather ? '...' : temperature !== null ? `${temperature > 0 ? '+' : ''}${temperature}°c` : 'N/A'}
-                </Text>
-                <Text style={styles.infoLabel}>Outside</Text>
-              </View>
               </View>
             </View>
 
-            {/* Right/Bottom Gauge - Roll */}
             <View style={styles.gaugeContainer}>
               <Gauge
                 value={roll_land}
-                color="#ff5e00ff"
+                color="#ff8c00"
                 title="ROLL"
                 carImage={CAR_REAR_IMAGE}
                 isLandscape={orientation}
@@ -374,42 +341,44 @@ export default function App() {
             </View>
           </View>
         ) : (
-          /* Portrait layout - four separate sections */
           <View style={[styles.portraitLayoutContainer]}>
-            {/* Section 1: Altitude */}
             <View style={styles.portraitAltitudeSection}>
               <Text style={[styles.altitude, styles.altitudePortrait]}>
                 {altitude.toLocaleString()} m
               </Text>
             </View>
 
-            {/* Section 2: Roll Gauge */}
             <View style={styles.portraitRollSection}>
               <Gauge
                 value={roll}
-                color="#ff5e00ff"
+                color="#ff8c00"
                 title="ROLL"
                 carImage={CAR_REAR_IMAGE}
                 isLandscape={orientation}
               />
             </View>
 
-            {/* Section 2: Pitch Gauge */}
             <View style={styles.portraitPitchSection}>
               <Gauge
                 value={pitch}
-                color="#00fc22ff"
+                color="#7cfc00"
                 title="PITCH"
                 carImage={CAR_SIDE_IMAGE}
                 isLandscape={orientation}
               />
             </View>
 
-            {/* Section 3: Speed and Temperature */}
             <View style={styles.portraitBottomInfoRow}>
               <View style={styles.portraitInfoItem}>
-                <View style={[styles.iconCircle, styles.portraitIcon]}>
-                  <Text style={styles.speedIcon}>🏎️</Text>
+                <View style={{ position: 'relative' }}>
+                  <Image
+                    source={SPEED_BG}
+                    style={styles.iconBackgroundPortrait}
+                    resizeMode="contain"
+                  />
+                  <View style={[styles.iconCircle, styles.portraitIcon]}>
+                    <Text style={styles.speedIcon}></Text>
+                  </View>
                 </View>
                 <View style={styles.portraitValueAndLabel}>
                   <Text style={styles.portraitInfoValue}>{speed} km/h</Text>
@@ -417,8 +386,15 @@ export default function App() {
                 </View>
               </View>
               <View style={styles.portraitInfoItem}>
-                <View style={[styles.iconCircle, styles.portraitIcon]}>
-                  <Text style={styles.tempIcon}>🌡️</Text>
+                <View style={{ position: 'relative' }}>
+                  <Image
+                    source={TEMP_BG}
+                    style={styles.iconBackgroundPortrait}
+                    resizeMode="contain"
+                  />
+                  <View style={[styles.iconCircle, styles.portraitIcon]}>
+                    <Text style={styles.tempIcon}></Text>
+                  </View>
                 </View>
                 <View style={styles.portraitValueAndLabel}>
                   <Text style={styles.portraitInfoValue}>
@@ -431,7 +407,6 @@ export default function App() {
           </View>
         )}
 
-        {/* Calibrate Button at bottom */}
         <TouchableOpacity style={styles.calibrateButton} onPress={calibrate}>
           <Text style={styles.calibrateText}>⚙ CALIBRATE / RESET ZERO</Text>
         </TouchableOpacity>
@@ -460,9 +435,6 @@ const styles = StyleSheet.create({
   },
   landscape: {
     flexDirection: 'row',
-  },
-  portrait: {
-    flexDirection: 'column',
   },
   gaugeContainer: {
     alignItems: 'center',
@@ -511,6 +483,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
   },
+  iconBackground: {
+    position: 'absolute',
+    width: 50,
+    height: 50,
+    top: -7.5,
+    left: -7.5,
+    opacity: 0.7,
+  },
+  iconBackgroundPortrait: {
+    position: 'absolute',
+    width: 50,
+    height: 50,
+    top: -7.5,
+    left: -7.5,
+    opacity: 0.7,
+  },
   iconCircle: {
     width: 35,
     height: 35,
@@ -550,55 +538,40 @@ const styles = StyleSheet.create({
   },
   calibrateButton: {
     alignSelf: 'center',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 25,
+    paddingVertical: 12,
+    borderRadius: 25,
     borderWidth: 2,
-    borderColor: '#202829ff',
+    borderColor: '#00e5ff',
     marginBottom: 8,
   },
   calibrateText: {
-    color: '#333737ff',
-    fontSize: 8,
+    color: '#00e5ff',
+    fontSize: 14,
     fontWeight: 'bold',
     letterSpacing: 1,
   },
-  // Portrait layout styles
   portraitLayoutContainer: {
     flex: 1,
     alignItems: 'center',
     paddingHorizontal: 10,
     paddingVertical: 20,
-    borderColor: 'red',
   },
-  // Four separate sections for portrait mode
   portraitAltitudeSection: {
     alignItems: 'center',
     marginBottom: 10,
-    borderColor: 'yellow',
     marginTop: 20
   },
   portraitRollSection: {
     justifyContent: 'center',
     alignItems: 'center',
-    borderColor: 'green',
     marginTop: '28%'
-
   },
   portraitPitchSection: {
-    // flex: 4,
     justifyContent: 'center',
     alignItems: 'center',
-    // marginTop: 10,
-    // marginBottom: 10,
-    borderColor: 'blue',
     marginTop: '35%'
-
-  },
-  portraitGaugeWrapper: {
-    alignItems: 'center',
-    flex: 1,
   },
   portraitBottomInfoRow: {
     flexDirection: 'row',
@@ -609,9 +582,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 15,
     paddingHorizontal: 20,
-    borderColor: 'purple',
     position: 'absolute',
-    bottom: 0,
+    bottom: 50,
   },
   portraitInfoItem: {
     alignItems: 'center',
