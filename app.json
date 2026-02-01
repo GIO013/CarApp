@@ -54,6 +54,7 @@
           }
         }
       ],
+      "./plugins/withFixBuildGradle.js",
       [
         "expo-location",
         {
