@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -31,8 +31,8 @@ const ROUND_BG = require('./assets/images/round.png');
 const SPEED_BG = require('./assets/images/speed.png');
 const TEMP_BG = require('./assets/images/temperature.png');
 
-const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, isLandscape }) => {
-  const size = isLandscape ? SCREEN_HEIGHT * 0.35 : SCREEN_WIDTH * 0.32;
+const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, isLandscape, isPortraitSideBySide = false }) => {
+  const size = isLandscape ? SCREEN_HEIGHT * 0.35 : (isPortraitSideBySide ? SCREEN_WIDTH * 0.42 : SCREEN_WIDTH * 0.45);
   const center = size / 2;
   const radius = size * 0.36;
   const circumference = 2 * Math.PI * radius;
@@ -84,7 +84,7 @@ const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, 
             strokeWidth={28}
             strokeDasharray={`${arcLength} ${circumference}`}
             strokeDashoffset={circumference * 0.25 + offset}
-            strokeLinecap="round"
+            strokeLinecap="butt"
             opacity={0.25}
           />
 
@@ -97,7 +97,7 @@ const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, 
             strokeWidth={20}
             strokeDasharray={`${arcLength} ${circumference}`}
             strokeDashoffset={circumference * 0.25 + offset}
-            strokeLinecap="round"
+            strokeLinecap="butt"
             opacity={0.95}
           />
 
@@ -173,6 +173,8 @@ const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, 
 export default function App() {
   const [rawPitch, setRawPitch] = useState(13);
   const [rawRoll, setRawRoll] = useState(-14);
+  const [smoothedPitch, setSmoothedPitch] = useState(13);
+  const [smoothedRoll, setSmoothedRoll] = useState(-14);
   const [pitchOffset, setPitchOffset] = useState(0);
   const [rollOffset, setRollOffset] = useState(0);
   const [altitude, setAltitude] = useState(6750);
@@ -181,10 +183,13 @@ export default function App() {
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [orientation, setOrientation] = useState(isLandscape);
 
-  const roll = Math.round((orientation ? rawRoll : rawPitch) - (orientation ? rollOffset : pitchOffset));
-  const pitch = Math.round((orientation ? rawPitch : rawRoll) - (orientation ? pitchOffset : rollOffset));
-  const roll_land  = Math.round((orientation ? rawRoll : rawPitch) - (orientation ? rollOffset : pitchOffset));
-  const pitch_land = - Math.round((orientation ? rawPitch : rawRoll) - (orientation ? pitchOffset : rollOffset));
+  // Smoothing factor (0.1 = very smooth, 0.5 = moderate, 1.0 = no smoothing)
+  const SMOOTHING_FACTOR = 0.15;
+
+  const roll = Math.round((orientation ? smoothedRoll : smoothedPitch) - (orientation ? rollOffset : pitchOffset));
+  const pitch = Math.round((orientation ? smoothedPitch : smoothedRoll) - (orientation ? pitchOffset : rollOffset));
+  const roll_land  = Math.round((orientation ? smoothedRoll : smoothedPitch) - (orientation ? rollOffset : pitchOffset));
+  const pitch_land = - Math.round((orientation ? smoothedPitch : smoothedRoll) - (orientation ? pitchOffset : rollOffset));
 
   useEffect(() => {
     async function unlockOrientation() {
@@ -220,7 +225,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    Accelerometer.setUpdateInterval(200);
+    Accelerometer.setUpdateInterval(50);
     const subscription = Accelerometer.addListener(({ x, y, z }) => {
       const newPitch = Math.atan2(-x, Math.sqrt(y * y + z * z)) * (180 / Math.PI);
       const newRoll = Math.atan2(y, z) * (180 / Math.PI);
@@ -229,6 +234,15 @@ export default function App() {
     });
     return () => subscription.remove();
   }, []);
+
+  // Smooth interpolation effect for pitch and roll
+  useEffect(() => {
+    const smoothingInterval = setInterval(() => {
+      setSmoothedPitch(prev => prev + (rawPitch - prev) * SMOOTHING_FACTOR);
+      setSmoothedRoll(prev => prev + (rawRoll - prev) * SMOOTHING_FACTOR);
+    }, 16); // ~60fps for smooth animation
+    return () => clearInterval(smoothingInterval);
+  }, [rawPitch, rawRoll]);
 
   useEffect(() => {
     const updateLocation = async () => {
@@ -302,11 +316,11 @@ export default function App() {
                       resizeMode="contain"
                     />
                     <View style={styles.iconCircle}>
-                      <Text style={styles.speedIcon}>🏎️</Text>
+                      <Text style={styles.speedIcon}></Text>
                     </View>
                   </View>
                   <Text style={[styles.infoNumberValue, styles.infoValueLandscape]}>{speed} km/h</Text>
-                  <Text style={styles.infoLabel}>Speed</Text>
+                  <Text style={styles.infoLabel}></Text>
                 </View>
 
                 <View style={styles.verticalDivider} />
@@ -319,13 +333,13 @@ export default function App() {
                       resizeMode="contain"
                     />
                     <View style={styles.iconCircle}>
-                      <Text style={styles.tempIcon}>🌡️</Text>
+                      <Text style={styles.tempIcon}></Text>
                     </View>
                   </View>
                   <Text style={[styles.infoNumberValue, styles.infoValueLandscape]}>
                     {loadingWeather ? '...' : temperature !== null ? `${temperature > 0 ? '+' : ''}${temperature}°c` : 'N/A'}
                   </Text>
-                  <Text style={styles.infoLabel}>Outside</Text>
+                  <Text style={styles.infoLabel}></Text>
                 </View>
               </View>
             </View>
@@ -348,23 +362,22 @@ export default function App() {
               </Text>
             </View>
 
-            <View style={styles.portraitRollSection}>
-              <Gauge
-                value={roll}
-                color="#ff8c00"
-                title="ROLL"
-                carImage={CAR_REAR_IMAGE}
-                isLandscape={orientation}
-              />
-            </View>
-
-            <View style={styles.portraitPitchSection}>
+            <View style={styles.portraitGaugesRow}>
               <Gauge
                 value={pitch}
                 color="#7cfc00"
                 title="PITCH"
                 carImage={CAR_SIDE_IMAGE}
                 isLandscape={orientation}
+                isPortraitSideBySide={true}
+              />
+              <Gauge
+                value={roll}
+                color="#ff8c00"
+                title="ROLL"
+                carImage={CAR_REAR_IMAGE}
+                isLandscape={orientation}
+                isPortraitSideBySide={true}
               />
             </View>
 
@@ -382,7 +395,7 @@ export default function App() {
                 </View>
                 <View style={styles.portraitValueAndLabel}>
                   <Text style={styles.portraitInfoValue}>{speed} km/h</Text>
-                  <Text style={styles.portraitBottomLabel}>Speed</Text>
+                  <Text style={styles.portraitBottomLabel}></Text>
                 </View>
               </View>
               <View style={styles.portraitInfoItem}>
@@ -400,7 +413,7 @@ export default function App() {
                   <Text style={styles.portraitInfoValue}>
                     {loadingWeather ? '...' : temperature !== null ? `${temperature > 0 ? '+' : ''}${temperature}°c` : 'N/A'}
                   </Text>
-                  <Text style={styles.portraitBottomLabel}>Outside</Text>
+                  <Text style={styles.portraitBottomLabel}></Text>
                 </View>
               </View>
             </View>
@@ -563,28 +576,26 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     marginTop: 20
   },
-  portraitRollSection: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: '28%'
-  },
-  portraitPitchSection: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: '35%'
-  },
-  portraitBottomInfoRow: {
+  portraitGaugesRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
     alignItems: 'center',
+    flex: 1,
     width: '100%',
-    backgroundColor: 'rgba(0, 0, 0, 0.27)',
-    borderRadius: 12,
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    position: 'absolute',
-    bottom: 50,
+    gap: 10,
   },
+  // portraitBottomInfoRow: {
+  //   flexDirection: 'row',
+  //   justifyContent: 'space-around',
+  //   alignItems: 'center',
+  //   width: '100%',
+  //   // backgroundColor: 'rgba(0, 0, 0, 0.27)',
+  //   borderRadius: 12,
+  //   paddingVertical: 15,
+  //   paddingHorizontal: 20,
+  //   position: 'absolute',
+  //   bottom: 50,
+  // },
   portraitInfoItem: {
     alignItems: 'center',
     flex: 1,
