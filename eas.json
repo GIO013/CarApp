@@ -8,7 +8,7 @@
       "distribution": "internal",
       "node": "22.12.0",
       "android": {
-        "image": "default"
+        "image": "ubuntu-22.04-jdk-17-ndk-r26b"
       }
     },
     "preview": {
@@ -16,7 +16,7 @@
       "node": "22.12.0",
       "android": {
         "buildType": "apk",
-        "image": "default"
+        "image": "ubuntu-22.04-jdk-17-ndk-r26b"
       }
     },
     "production": {
@@ -24,7 +24,7 @@
       "node": "22.12.0",
       "android": {
         "buildType": "apk",
-        "image": "default"
+        "image": "ubuntu-22.04-jdk-17-ndk-r26b"
       }
     }
   },
