@@ -1,218 +1,375 @@
 # CLAUDE.md - AI Assistant Guide for Car Dashboard App
 
+## Quick Reference
+
+```bash
+npm start              # Start dev server, scan QR with Expo Go
+npm run android        # Run on Android emulator/device
+npx expo start --clear # Clear cache and restart
+```
+
+```bash
+# Build APK (Windows)
+$env:EAS_NO_VCS='1'; eas build --platform android --profile preview
+```
+
+**Key file**: `App.js` - entire app in single file (614 lines)
+
+---
+
 ## Project Overview
 
-This is a **React Native / Expo** car dashboard application that displays real-time vehicle telemetry data including pitch/roll angles (from accelerometer), altitude, speed (from GPS), and outside temperature (from weather API).
+React Native / Expo car dashboard app displaying real-time vehicle telemetry:
+- **Pitch/Roll angles** from device accelerometer
+- **Altitude** (meters) and **Speed** (km/h) from GPS
+- **Outside temperature** from Open-Meteo weather API
+- Responsive **portrait and landscape** layouts
 
 ### Tech Stack
-- **Framework**: React Native with Expo SDK 54
-- **Language**: JavaScript (ES6+)
-- **Build System**: EAS Build (Expo Application Services)
-- **Package Manager**: npm (with yarn.lock also present)
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| React Native | 0.76.9 | Mobile framework |
+| Expo SDK | 54.0.0 | Development platform |
+| React | 18.3.1 | UI library |
+| react-native-svg | 15.8.0 | Gauge rendering |
+
+---
 
 ## Project Structure
 
 ```
 CarApp/
-├── App.js                 # Main application component (single-file app)
-├── index.js               # Entry point - registers root component
-├── app.json               # Expo configuration (permissions, icons, splash)
-├── eas.json               # EAS Build configuration
-├── package.json           # Dependencies and scripts
+├── App.js                 # MAIN FILE - all components and logic
+├── index.js               # Entry point (8 lines)
+├── app.json               # Expo config, permissions, assets
+├── eas.json               # Build profiles (preview, production)
+├── package.json           # Dependencies
 ├── assets/
-│   ├── images/
-│   │   ├── background_portrait.jpg   # Portrait mode background
-│   │   ├── background_landscape.jpeg # Landscape mode background
-│   │   ├── car-rear.png              # Car rear view for roll gauge
-│   │   ├── car-side.png              # Car side view for pitch gauge
-│   │   ├── round.png                 # Gauge background
-│   │   ├── speed.png                 # Speed icon background
-│   │   └── temperature.png           # Temperature icon background
-│   ├── icon.png           # App icon
-│   ├── splash.png         # Splash screen
-│   └── adaptive-icon.png  # Android adaptive icon
-└── *.md                   # Documentation files
+│   └── images/
+│       ├── background_portrait.jpg   # Portrait background
+│       ├── background_landscape.jpeg # Landscape background
+│       ├── car-rear.png    # Roll gauge car image
+│       ├── car-side.png    # Pitch gauge car image
+│       ├── round.png       # Gauge circular background
+│       ├── speed.png       # Speed icon glow
+│       └── temperature.png # Temp icon glow
 ```
 
-## Key Dependencies
+---
 
-| Package | Purpose |
-|---------|---------|
-| `expo` (~54.0.0) | Core Expo framework |
-| `expo-location` (~18.0.0) | GPS for altitude and speed |
-| `expo-sensors` (~14.0.0) | Accelerometer for pitch/roll |
-| `expo-screen-orientation` (~8.0.0) | Handle portrait/landscape |
-| `react-native-svg` (15.8.0) | SVG rendering for gauges |
+## App.js Deep Dive
 
-## Development Commands
+### File Structure
+| Lines | Content |
+|-------|---------|
+| 1-16 | Imports |
+| 18-32 | Constants and image requires |
+| 34-171 | `Gauge` component |
+| 173-416 | `App` component |
+| 418-614 | `StyleSheet` definitions |
 
-```bash
-# Start development server
-npm start
+### State Variables (`App` component, lines 174-182)
 
-# Run on Android (requires emulator or device)
-npm run android
-
-# Run on iOS (macOS only)
-npm run ios
-
-# Start with cleared cache
-npx expo start --clear
+```javascript
+rawPitch, setRawPitch       // Raw accelerometer pitch (default: 13)
+rawRoll, setRawRoll         // Raw accelerometer roll (default: -14)
+pitchOffset, setPitchOffset // Calibration offset for pitch
+rollOffset, setRollOffset   // Calibration offset for roll
+altitude, setAltitude       // GPS altitude in meters (default: 6750)
+speed, setSpeed             // GPS speed in km/h (default: 35)
+temperature, setTemperature // Weather temp in Celsius
+loadingWeather              // Weather loading state
+orientation                 // true = landscape, false = portrait
 ```
 
-## Building APK
-
-### Using EAS Build (Recommended)
-```bash
-# Login to Expo (required once)
-eas login
-
-# Build preview APK
-eas build --platform android --profile preview
-
-# Build production APK
-eas build --platform android --profile production
-
-# Local build (requires Android Studio)
-eas build --platform android --profile preview --local
+### Computed Values (lines 184-187)
+```javascript
+// Orientation swaps pitch/roll axes and applies calibration
+roll = (orientation ? rawRoll : rawPitch) - offset
+pitch = (orientation ? rawPitch : rawRoll) - offset
+roll_land = roll   // Used in landscape
+pitch_land = -pitch // Inverted for landscape display
 ```
 
-### Windows PowerShell (Skip Git Issues)
-```powershell
-$env:EAS_NO_VCS='1'; eas build --platform android --profile preview
+### useEffect Hooks
+
+| Lines | Purpose | Interval |
+|-------|---------|----------|
+| 189-206 | Screen orientation listener | Event-based |
+| 213-220 | Location permission request | Once on mount |
+| 222-231 | Accelerometer subscription | 200ms updates |
+| 233-250 | GPS location polling + weather | 5000ms (5 sec) |
+
+### Gauge Component Props (line 34)
+```javascript
+Gauge({ value, max=50, color='#00ff88', title='PITCH', carImage, isLandscape })
 ```
 
-## App Architecture
-
-### Main Component (`App.js`)
-The entire application is contained in a single `App.js` file with:
-
-1. **`Gauge` Component** (lines 34-171): SVG-based circular gauge displaying pitch or roll angles with:
-   - Semi-circular progress arc
-   - Tick marks at 10-degree intervals
-   - Car image that tilts based on angle value
-   - Glowing radial gradient effect
-
-2. **`App` Component** (lines 173-415): Main app with:
-   - State management for sensor data, location, and weather
-   - Accelerometer subscription for pitch/roll
-   - Location polling (every 5 seconds) for altitude/speed
-   - Weather API calls to Open-Meteo
-   - Responsive layout for portrait/landscape
-
-### Data Flow
-```
-Accelerometer → rawPitch/rawRoll → calibration offset → displayed value
-GPS Location → altitude (meters), speed (km/h)
-Open-Meteo API → temperature (Celsius)
+### Gauge Math (lines 36-44)
+```javascript
+size = isLandscape ? SCREEN_HEIGHT * 0.35 : SCREEN_WIDTH * 0.32
+radius = size * 0.36
+circumference = 2 * Math.PI * radius
+normalizedValue = clamp(value, -max, max)
+progress = (normalizedValue + max) / (2 * max)  // 0 to 1
+arcLength = circumference / 2  // Semi-circle
+carTilt = value * 1.5  // Visual rotation multiplier
 ```
 
-## Code Conventions
+---
 
-### Styling
-- All styles defined in `StyleSheet.create()` at file bottom
-- Dark theme with neon accent colors:
-  - Cyan (`#00e5ff`) - altitude, calibrate button
-  - Green (`#7cfc00`) - pitch gauge
-  - Orange (`#ff8c00`) - roll gauge
-- Responsive sizing based on screen dimensions
+## Color Palette
 
-### State Management
-- React `useState` for all state
-- `useEffect` for side effects (sensors, location, orientation)
-- No external state management library
+| Color | Hex | Usage |
+|-------|-----|-------|
+| Cyan | `#00e5ff` | Altitude text, calibrate button |
+| Lime Green | `#7cfc00` | Pitch gauge |
+| Orange | `#ff8c00` | Roll gauge |
+| White | `#fff` | Speed/temp values |
+| Gray | `#999` | Labels ("Speed", "Outside") |
+| Black | `#000` | Background fallback |
 
-### Naming Conventions
-- PascalCase for components (`Gauge`, `App`)
-- camelCase for variables and functions
-- SCREAMING_SNAKE_CASE for constants (e.g., `SCREEN_WIDTH`)
+---
 
-## Configuration Files
+## Data Flow
 
-### `app.json`
-- **Package ID**: `com.cardashboard.app`
-- **Permissions**: `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`, `INTERNET`
-- **EAS Project ID**: `486d94e3-dbcc-4f2d-8e29-515e3c765f6d`
+```
+┌─────────────────────────────────────────────────────────────┐
+│ ACCELEROMETER (200ms)                                       │
+│ Accelerometer.addListener → x,y,z → atan2 → pitch/roll     │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│ CALIBRATION                                                 │
+│ rawPitch - pitchOffset = displayed pitch                    │
+│ rawRoll - rollOffset = displayed roll                       │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│ GAUGE RENDERING                                             │
+│ value → normalize → progress arc + car tilt                 │
+└─────────────────────────────────────────────────────────────┘
 
-### `eas.json`
-- **preview**: Builds APK for internal testing
-- **production**: Builds APK for distribution
-- Both use `distribution: internal`
+┌─────────────────────────────────────────────────────────────┐
+│ GPS LOCATION (5 sec polling)                                │
+│ Location.getCurrentPositionAsync → altitude (m), speed (m/s)│
+│ speed * 3.6 → km/h                                          │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│ WEATHER API (on location update)                            │
+│ lat/lon → Open-Meteo → temperature (°C)                     │
+└─────────────────────────────────────────────────────────────┘
+```
 
-## External APIs
+---
 
-### Open-Meteo Weather API
+## Dual Layout Architecture
+
+The app renders completely different UI trees for portrait vs landscape:
+
+```javascript
+{orientation ? (
+  // LANDSCAPE: lines 280-342
+  // Horizontal row: [Pitch Gauge] [Altitude + Info] [Roll Gauge]
+) : (
+  // PORTRAIT: lines 344-407
+  // Vertical stack: Altitude → Roll → Pitch → Bottom Info Bar
+)}
+```
+
+**CRITICAL**: Any UI change must be made in BOTH branches.
+
+### Layout Differences
+| Element | Portrait | Landscape |
+|---------|----------|-----------|
+| Gauges | Stacked vertically | Side by side |
+| Info panel | Fixed bottom bar | Center column |
+| Gauge size | `SCREEN_WIDTH * 0.32` | `SCREEN_HEIGHT * 0.35` |
+| Altitude | Top | Center |
+
+---
+
+## Common Modifications
+
+### Add a New Data Display
+
+1. **Add state** (after line 182):
+```javascript
+const [newData, setNewData] = useState(null);
+```
+
+2. **Add data source** (new useEffect):
+```javascript
+useEffect(() => {
+  const subscription = SomeAPI.addListener(data => {
+    setNewData(data);
+  });
+  return () => subscription.remove();
+}, []);
+```
+
+3. **Add to BOTH layouts**:
+   - Landscape: inside `altitudeAndInfoPanel` (around line 291)
+   - Portrait: inside `portraitBottomInfoRow` (around line 371)
+
+### Change Gauge Range
+
+Edit the `max` prop when calling `<Gauge>`:
+```javascript
+<Gauge value={pitch} max={45} .../>  // Change from 50 to 45
+```
+
+Also update tick marks in Gauge component (lines 48-49):
+```javascript
+const ticks = [-40, -30, -20, -10, 10, 20, 30, 40];
+const majorTicks = [-30, -20, -10, 10, 20, 30];
+```
+
+### Change Update Frequency
+
+- **Accelerometer** (line 223): `Accelerometer.setUpdateInterval(200)` - milliseconds
+- **GPS polling** (line 248): `setInterval(updateLocation, 5000)` - milliseconds
+
+### Add New Permission
+
+1. Edit `app.json` under `expo.android.permissions`:
+```json
+"permissions": ["ACCESS_FINE_LOCATION", "NEW_PERMISSION"]
+```
+
+2. If using Expo plugin, add to `expo.plugins` array
+
+---
+
+## API Reference
+
+### Open-Meteo Weather (lines 252-268)
 ```
 GET https://api.open-meteo.com/v1/forecast
-  ?latitude={lat}&longitude={lon}
-  &current_weather=true
-  &temperature_unit=celsius
+    ?latitude={lat}
+    &longitude={lon}
+    &current_weather=true
+    &temperature_unit=celsius
+
+Response: { current_weather: { temperature: number } }
 ```
-- Free, no API key required
-- Returns `current_weather.temperature`
+- Free, no API key
+- Called on each GPS location update
 
-## Common Tasks for AI Assistants
+---
 
-### Adding New Sensor Data
-1. Import from appropriate `expo-*` package
-2. Add state variable in `App` component
-3. Set up subscription in `useEffect` with cleanup
-4. Display in the UI (both portrait and landscape layouts)
+## Build Configuration
 
-### Modifying Gauge Appearance
-- Gauge component accepts: `value`, `max`, `color`, `title`, `carImage`, `isLandscape`
-- Tick marks defined in `ticks` and `majorTicks` arrays
-- Arc length calculated from `circumference / 2` (half-circle gauge)
+### eas.json Profiles
+```json
+{
+  "preview": {    // For testing - outputs APK
+    "distribution": "internal",
+    "android": { "buildType": "apk" }
+  },
+  "production": { // For release - outputs APK
+    "distribution": "internal",
+    "android": { "buildType": "apk" }
+  }
+}
+```
 
-### Adding New Data Panel
-1. Create icon background image in `assets/images/`
-2. Add to `assetBundlePatterns` in `app.json`
-3. Import with `require()`
-4. Add UI in both `{orientation ? (...) : (...)}` branches
+### app.json Key Settings
+```json
+{
+  "expo": {
+    "name": "Car Dashboard",
+    "slug": "CarDashboardApp",
+    "android": {
+      "package": "com.cardashboard.app",
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "INTERNET"]
+    },
+    "plugins": ["expo-location", "expo-sensors"],
+    "assetBundlePatterns": ["assets/images/*"]  // Include images in build
+  }
+}
+```
 
-### Updating Permissions
-Edit `app.json` under `expo.android.permissions` and `expo.plugins`
+---
 
 ## Troubleshooting
 
-### "ReadableNativeMap cannot be cast to ReadableArray"
-- Clear Metro cache: `npx expo start --clear`
-- Rebuild: `rm -rf node_modules && npm install`
+| Problem | Solution |
+|---------|----------|
+| Metro cache issues | `npx expo start --clear` |
+| "ReadableNativeMap" error | `rm -rf node_modules && npm install` |
+| Sensors not working | Test on physical device, not emulator |
+| Images not loading | Check `assetBundlePatterns` in app.json |
+| Git errors on Windows | Set `$env:EAS_NO_VCS='1'` before build |
+| Build fails | Check logs at expo.dev dashboard |
 
-### Location/Sensor Issues
-- Verify permissions in `app.json`
-- Test on physical device (emulators have limited sensor support)
+---
 
-### Build Failures
-- Check EAS dashboard for logs
-- Verify all images exist and are valid
-- Ensure `app.json` configuration is valid JSON
+## Gotchas & Edge Cases
 
-## Testing
+1. **Orientation swaps axes**: In portrait, device pitch becomes display roll. The computed values (lines 184-187) handle this swap.
 
-### Quick Testing (Expo Go)
-1. Install Expo Go on Android device
-2. Run `npm start`
-3. Scan QR code with Expo Go
+2. **Negative pitch in landscape**: `pitch_land` is negated (`-pitch`) for correct visual direction.
 
-### Native Feature Testing
-For full accelerometer/GPS functionality, use:
-- Android emulator with `npm run android`
-- Physical device with USB debugging
-- Development build via EAS
+3. **Speed unit conversion**: GPS returns m/s, multiplied by 3.6 for km/h (line 240).
 
-## Important Notes for AI Assistants
+4. **Weather on location**: `fetchWeather()` is called inside the location update callback, not on a separate interval.
 
-1. **Single-file architecture**: All app logic is in `App.js`. Consider this when making changes - no separate component files exist.
+5. **Default values**: State defaults (lines 174-179) show demo values when sensors aren't available.
 
-2. **Dual layouts**: Portrait and landscape modes have separate UI code branches. Changes to displayed data require updating both.
+6. **Calibration is volatile**: Resets on app restart - no persistence.
 
-3. **Calibration**: The calibrate button sets current pitch/roll as the zero reference point. State is in `pitchOffset`/`rollOffset`.
+7. **Car tilt multiplier**: Visual rotation is `value * 1.5` for exaggerated effect (line 46).
 
-4. **No TypeScript**: Project uses plain JavaScript. Type annotations are not used.
+---
 
-5. **No tests**: No test files exist. Manual testing via Expo Go or device builds is the current workflow.
+## Code Style
 
-6. **Windows development**: Primary development appears to be on Windows (PowerShell scripts, Windows paths in docs).
+- **No TypeScript** - plain JavaScript only
+- **No tests** - manual testing via Expo Go
+- **Single file** - no component splitting
+- **Inline styles** - some styles mixed with StyleSheet
+- **Ternary layouts** - `{condition ? <A/> : <B/>}` for orientation
 
-7. **Asset bundling**: New images must be added to `assetBundlePatterns` in `app.json` to be included in builds.
+### Naming
+- Components: `PascalCase`
+- Variables/functions: `camelCase`
+- Constants: `SCREAMING_SNAKE_CASE`
+- Style keys: `camelCase`
+
+---
+
+## Quick Commands Reference
+
+```bash
+# Development
+npm start                    # Start Expo dev server
+npm run android              # Run on Android
+npm run ios                  # Run on iOS (macOS only)
+npx expo start --clear       # Clear cache
+
+# Building
+eas login                    # Login to Expo (once)
+eas build --platform android --profile preview      # Test APK
+eas build --platform android --profile production   # Release APK
+eas build --platform android --profile preview --local  # Local build
+
+# Debugging
+npx expo start --clear       # Reset Metro bundler
+rm -rf node_modules && npm i # Clean reinstall
+adb devices                  # Check connected Android devices
+```
+
+---
+
+## Important Reminders for AI Assistants
+
+1. **Read before editing** - Always read `App.js` sections before modifying
+2. **Update BOTH layouts** - Portrait (lines 344-407) AND landscape (lines 280-342)
+3. **Check line numbers** - They shift with edits; use search instead
+4. **Test orientation** - Rotate device to verify both layouts work
+5. **Asset bundling** - New images need `assetBundlePatterns` entry
+6. **No TypeScript** - Don't add type annotations
+7. **Preserve calibration logic** - The offset system is intentional
+8. **Keep it single-file** - Don't refactor into multiple files without user request
