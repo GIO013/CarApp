@@ -418,22 +418,9 @@ export default function App() {
               </Text>
             </View>
 
-            {/* Gauges Container - Scrollable area */}
+            {/* Gauges Container - Side by Side */}
             <View style={styles.portraitGaugesWrapper}>
-              {/* ROLL Gauge */}
-              <View style={styles.portraitGaugeItem}>
-                <Gauge
-                  value={roll}
-                  color="#ff8c00"
-                  title="ROLL"
-                  carImage={CAR_REAR_IMAGE}
-                  isLandscape={isLandscape}
-                  screenWidth={screenWidth}
-                  screenHeight={screenHeight}
-                />
-              </View>
-
-              {/* PITCH Gauge - Below Roll */}
+              {/* PITCH Gauge - Left */}
               <View style={styles.portraitGaugeItem}>
                 <Gauge
                   value={pitch}
@@ -445,36 +432,33 @@ export default function App() {
                   screenHeight={screenHeight}
                 />
               </View>
+
+              {/* ROLL Gauge - Right */}
+              <View style={styles.portraitGaugeItem}>
+                <Gauge
+                  value={roll}
+                  color="#ff8c00"
+                  title="ROLL"
+                  carImage={CAR_REAR_IMAGE}
+                  isLandscape={isLandscape}
+                  screenWidth={screenWidth}
+                  screenHeight={screenHeight}
+                />
+              </View>
             </View>
 
             {/* Bottom Info Row */}
             <View style={styles.portraitBottomInfoRow}>
               <View style={styles.portraitInfoItem}>
-                <View style={styles.iconWrapper}>
-                  <Image source={SPEED_BG} style={styles.iconBackgroundPortrait} resizeMode="contain" />
-                  <View style={[styles.iconCircle, styles.portraitIcon]}>
-                    <Text style={styles.speedIcon}>🏎️</Text>
-                  </View>
-                </View>
-                <View style={styles.portraitValueAndLabel}>
-                  <Text style={[styles.portraitInfoValue, { fontSize: infoValueFontSize }]}>{speed} km/h</Text>
-                  <Text style={styles.portraitBottomLabel}>Speed</Text>
-                </View>
+                <Text style={[styles.portraitInfoValue, { fontSize: infoValueFontSize }]}>{speed} km/h</Text>
+                <Text style={styles.portraitBottomLabel}>Speed</Text>
               </View>
 
               <View style={styles.portraitInfoItem}>
-                <View style={styles.iconWrapper}>
-                  <Image source={TEMP_BG} style={styles.iconBackgroundPortrait} resizeMode="contain" />
-                  <View style={[styles.iconCircle, styles.portraitIcon]}>
-                    <Text style={styles.tempIcon}>🌡️</Text>
-                  </View>
-                </View>
-                <View style={styles.portraitValueAndLabel}>
-                  <Text style={[styles.portraitInfoValue, { fontSize: infoValueFontSize }]}>
-                    {loadingWeather ? '...' : temperature !== null ? `${temperature > 0 ? '+' : ''}${temperature}°c` : 'N/A'}
-                  </Text>
-                  <Text style={styles.portraitBottomLabel}>Outside</Text>
-                </View>
+                <Text style={[styles.portraitInfoValue, { fontSize: infoValueFontSize }]}>
+                  {loadingWeather ? '...' : temperature !== null ? `${temperature > 0 ? '+' : ''}${temperature}°c` : 'N/A'}
+                </Text>
+                <Text style={styles.portraitBottomLabel}>Outside</Text>
               </View>
             </View>
           </View>
@@ -554,9 +538,9 @@ const styles = StyleSheet.create({
   portraitGaugesWrapper: {
     flex: 1,
     width: '100%',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 15,
+    justifyContent: 'space-evenly',
   },
   portraitGaugeItem: {
     alignItems: 'center',
@@ -576,11 +560,7 @@ const styles = StyleSheet.create({
   portraitInfoItem: {
     alignItems: 'center',
     flex: 1,
-    flexDirection: 'row',
     justifyContent: 'center',
-  },
-  portraitValueAndLabel: {
-    alignItems: 'center',
   },
   portraitInfoValue: {
     fontWeight: 'bold',
@@ -588,9 +568,6 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,255,255,0.4)',
     textShadowRadius: 6,
     marginBottom: 2,
-  },
-  portraitIcon: {
-    marginRight: 8,
   },
   portraitBottomLabel: {
     fontSize: 12,
@@ -633,14 +610,6 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   iconBackground: {
-    position: 'absolute',
-    width: 50,
-    height: 50,
-    top: -7.5,
-    left: -7.5,
-    opacity: 0.7,
-  },
-  iconBackgroundPortrait: {
     position: 'absolute',
     width: 50,
     height: 50,
