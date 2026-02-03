@@ -1,22 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Dimensions,
   TouchableOpacity,
   Alert,
   ImageBackground,
   Image,
+  useWindowDimensions,
+  AppState,
+  Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
 import { Accelerometer } from 'expo-sensors';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import Svg, { Circle, Line, Text as SvgText, Image as SvgImage, Defs, RadialGradient, Stop } from 'react-native-svg';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const isLandscape = SCREEN_WIDTH > SCREEN_HEIGHT;
 
 // Background images
 const BACKGROUND_PORTRAIT = require('./assets/images/background_portrait.jpg');
@@ -26,36 +25,43 @@ const BACKGROUND_LANDSCAPE = require('./assets/images/background_landscape.jpeg'
 const CAR_REAR_IMAGE = require('./assets/images/car-rear.png');
 const CAR_SIDE_IMAGE = require('./assets/images/car-side.png');
 
-// New background images for gauges and icons
+// Background images for gauges and icons
 const ROUND_BG = require('./assets/images/round.png');
 const SPEED_BG = require('./assets/images/speed.png');
 const TEMP_BG = require('./assets/images/temperature.png');
 
-const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, isLandscape }) => {
-  const size = isLandscape ? SCREEN_HEIGHT * 0.35 : SCREEN_WIDTH * 0.32;
+// ===== RESPONSIVE GAUGE COMPONENT =====
+const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, isLandscape, screenWidth, screenHeight }) => {
+  // Responsive sizing based on screen dimensions
+  const size = isLandscape
+    ? Math.min(screenHeight * 0.38, screenWidth * 0.25)
+    : Math.min(screenWidth * 0.36, screenHeight * 0.22);
+
   const center = size / 2;
   const radius = size * 0.36;
   const circumference = 2 * Math.PI * radius;
-  
+
   const normalizedValue = Math.max(-max, Math.min(max, value));
   const progress = (normalizedValue + max) / (2 * max);
-  
+
   const arcLength = circumference / 2;
   const offset = arcLength * (1 - progress);
-  
+
   const carTilt = value * 1.5;
 
   const ticks = [-40, -30, -20, -10, 10, 20, 30, 40];
   const majorTicks = [-30, -20, -10, 10, 20, 30];
 
+  // Responsive font size
+  const titleFontSize = isLandscape ? Math.max(14, size * 0.1) : Math.max(12, size * 0.09);
+
   return (
     <View style={{ alignItems: 'center' }}>
-      <Text style={[styles.gaugeTitle, { color, fontSize: isLandscape ? 18 : 16 }]}>
+      <Text style={[styles.gaugeTitle, { color, fontSize: titleFontSize }]}>
         {value > 0 ? '+' : ''}{Math.round(value)}° {title}
       </Text>
 
       <View style={{ position: 'relative', width: size, height: size }}>
-        {/* Round background image behind gauge */}
         <Image
           source={ROUND_BG}
           style={{
@@ -81,7 +87,7 @@ const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, 
             r={radius}
             fill="none"
             stroke={color}
-            strokeWidth={28}
+            strokeWidth={Math.max(20, size * 0.12)}
             strokeDasharray={`${arcLength} ${circumference}`}
             strokeDashoffset={circumference * 0.25 + offset}
             strokeLinecap="round"
@@ -94,7 +100,7 @@ const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, 
             r={radius}
             fill="none"
             stroke={color}
-            strokeWidth={20}
+            strokeWidth={Math.max(16, size * 0.1)}
             strokeDasharray={`${arcLength} ${circumference}`}
             strokeDashoffset={circumference * 0.25 + offset}
             strokeLinecap="round"
@@ -115,16 +121,16 @@ const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, 
             const innerRadius = radius + 18;
             const outerRadius = radius + 35;
             const labelRadius = radius + 50;
-            
+
             const x1 = center + innerRadius * Math.cos(rad);
             const y1 = center + innerRadius * Math.sin(rad);
             const x2 = center + outerRadius * Math.cos(rad);
             const y2 = center + outerRadius * Math.sin(rad);
             const labelX = center + labelRadius * Math.cos(rad);
             const labelY = center + labelRadius * Math.sin(rad);
-            
+
             const isMajor = majorTicks.includes(deg);
-            
+
             return (
               <React.Fragment key={deg}>
                 <Line
@@ -170,7 +176,23 @@ const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, 
   );
 };
 
+// ===== ORIENTATION TOGGLE BUTTON =====
+const OrientationButton = ({ isLandscape, onToggle }) => {
+  return (
+    <TouchableOpacity style={styles.orientationButton} onPress={onToggle}>
+      <Text style={styles.orientationIcon}>
+        {isLandscape ? '📱' : '🔄'}
+      </Text>
+    </TouchableOpacity>
+  );
+};
+
+// ===== MAIN APP COMPONENT =====
 export default function App() {
+  // Use useWindowDimensions for responsive layout (auto-updates on resize/rotation)
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const isLandscape = screenWidth > screenHeight;
+
   const [rawPitch, setRawPitch] = useState(13);
   const [rawRoll, setRawRoll] = useState(-14);
   const [pitchOffset, setPitchOffset] = useState(0);
@@ -179,30 +201,65 @@ export default function App() {
   const [speed, setSpeed] = useState(35);
   const [temperature, setTemperature] = useState(null);
   const [loadingWeather, setLoadingWeather] = useState(true);
-  const [orientation, setOrientation] = useState(isLandscape);
+  const [isOrientationLocked, setIsOrientationLocked] = useState(false);
+  const [appState, setAppState] = useState(AppState.currentState);
 
-  const roll = Math.round((orientation ? rawRoll : rawPitch) - (orientation ? rollOffset : pitchOffset));
-  const pitch = Math.round((orientation ? rawPitch : rawRoll) - (orientation ? pitchOffset : rollOffset));
-  const roll_land  = Math.round((orientation ? rawRoll : rawPitch) - (orientation ? rollOffset : pitchOffset));
-  const pitch_land = - Math.round((orientation ? rawPitch : rawRoll) - (orientation ? pitchOffset : rollOffset));
+  // Calculated values
+  const roll = Math.round((isLandscape ? rawRoll : rawPitch) - (isLandscape ? rollOffset : pitchOffset));
+  const pitch = Math.round((isLandscape ? rawPitch : rawRoll) - (isLandscape ? pitchOffset : rollOffset));
+  const roll_land = Math.round((isLandscape ? rawRoll : rawPitch) - (isLandscape ? rollOffset : pitchOffset));
+  const pitch_land = -Math.round((isLandscape ? rawPitch : rawRoll) - (isLandscape ? pitchOffset : rollOffset));
 
+  // Responsive font sizes
+  const altitudeFontSize = isLandscape
+    ? Math.min(50, screenWidth * 0.07)
+    : Math.min(45, screenWidth * 0.11);
+
+  const infoValueFontSize = isLandscape
+    ? Math.min(26, screenWidth * 0.035)
+    : Math.min(20, screenWidth * 0.05);
+
+  // ===== ORIENTATION CONTROL =====
+  const toggleOrientation = useCallback(async () => {
+    try {
+      if (isOrientationLocked) {
+        // Unlock orientation
+        await ScreenOrientation.unlockAsync();
+        setIsOrientationLocked(false);
+      } else {
+        // Lock to opposite orientation
+        if (isLandscape) {
+          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+        } else {
+          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT);
+        }
+        setIsOrientationLocked(true);
+      }
+    } catch (error) {
+      console.log('Orientation toggle error:', error);
+    }
+  }, [isLandscape, isOrientationLocked]);
+
+  // ===== APP STATE HANDLING (for PiP and Split-Screen) =====
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      // Handle app going to background (for PiP trigger)
+      if (appState === 'active' && nextAppState.match(/inactive|background/)) {
+        // App is going to background - PiP would trigger here on native
+        console.log('App moving to background - PiP mode would activate');
+      }
+      setAppState(nextAppState);
+    });
+
+    return () => subscription?.remove();
+  }, [appState]);
+
+  // ===== INITIAL ORIENTATION SETUP =====
   useEffect(() => {
     async function unlockOrientation() {
       await ScreenOrientation.unlockAsync();
     }
     unlockOrientation();
-    
-    const subscription = ScreenOrientation.addOrientationChangeListener((event) => {
-      const { orientationInfo } = event;
-      setOrientation(
-        orientationInfo.orientation === ScreenOrientation.Orientation.LANDSCAPE_LEFT ||
-        orientationInfo.orientation === ScreenOrientation.Orientation.LANDSCAPE_RIGHT
-      );
-    });
-    
-    return () => {
-      ScreenOrientation.removeOrientationChangeListener(subscription);
-    };
   }, []);
 
   const calibrate = () => {
@@ -210,6 +267,7 @@ export default function App() {
     setRollOffset(rawRoll);
   };
 
+  // ===== LOCATION PERMISSION =====
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -219,6 +277,7 @@ export default function App() {
     })();
   }, []);
 
+  // ===== ACCELEROMETER =====
   useEffect(() => {
     Accelerometer.setUpdateInterval(200);
     const subscription = Accelerometer.addListener(({ x, y, z }) => {
@@ -230,15 +289,16 @@ export default function App() {
     return () => subscription.remove();
   }, []);
 
+  // ===== LOCATION UPDATES =====
   useEffect(() => {
     const updateLocation = async () => {
       try {
-        const loc = await Location.getCurrentPositionAsync({ 
-          accuracy: Location.Accuracy.High 
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High
         });
         setAltitude(Math.round(loc.coords.altitude || 0));
         setSpeed(Math.round((loc.coords.speed || 0) * 3.6));
-        
+
         fetchWeather(loc.coords.latitude, loc.coords.longitude);
       } catch (e) {
         console.log('Location error:', e);
@@ -255,7 +315,7 @@ export default function App() {
         `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&temperature_unit=celsius`
       );
       const data = await response.json();
-      
+
       if (data.current_weather && data.current_weather.temperature !== undefined) {
         setTemperature(Math.round(data.current_weather.temperature));
         setLoadingWeather(false);
@@ -267,62 +327,66 @@ export default function App() {
     }
   };
 
+  // ===== RENDER =====
   return (
     <ImageBackground
-      source={orientation ? BACKGROUND_LANDSCAPE : BACKGROUND_PORTRAIT}
+      source={isLandscape ? BACKGROUND_LANDSCAPE : BACKGROUND_PORTRAIT}
       style={styles.background}
       resizeMode="cover"
     >
       <View style={styles.container}>
         <StatusBar style="light" hidden />
 
-        {orientation ? (
-          <View style={[styles.mainRow, styles.landscape]}>
-            <View style={styles.gaugeContainer}>
+        {/* Orientation Toggle Button */}
+        <OrientationButton
+          isLandscape={isLandscape}
+          onToggle={toggleOrientation}
+        />
+
+        {isLandscape ? (
+          /* ===== LANDSCAPE LAYOUT ===== */
+          <View style={styles.landscapeContainer}>
+            {/* Left Gauge - PITCH */}
+            <View style={styles.landscapeGauge}>
               <Gauge
                 value={pitch_land}
                 color="#7cfc00"
                 title="PITCH"
                 carImage={CAR_SIDE_IMAGE}
-                isLandscape={orientation}
+                isLandscape={isLandscape}
+                screenWidth={screenWidth}
+                screenHeight={screenHeight}
               />
             </View>
 
-            <View style={styles.altitudeAndInfoPanel}>
-              <Text style={[styles.altitude, styles.altitudeLandscape]}>
+            {/* Center Info Panel */}
+            <View style={styles.landscapeCenterPanel}>
+              <Text style={[styles.altitude, { fontSize: altitudeFontSize }]}>
                 {altitude.toLocaleString()} m
               </Text>
 
               <View style={styles.speedAndTemperatureRow}>
                 <View style={styles.infoItemContainer}>
-                  <View style={{ position: 'relative' }}>
-                    <Image
-                      source={SPEED_BG}
-                      style={styles.iconBackground}
-                      resizeMode="contain"
-                    />
+                  <View style={styles.iconWrapper}>
+                    <Image source={SPEED_BG} style={styles.iconBackground} resizeMode="contain" />
                     <View style={styles.iconCircle}>
                       <Text style={styles.speedIcon}>🏎️</Text>
                     </View>
                   </View>
-                  <Text style={[styles.infoNumberValue, styles.infoValueLandscape]}>{speed} km/h</Text>
+                  <Text style={[styles.infoNumberValue, { fontSize: infoValueFontSize }]}>{speed} km/h</Text>
                   <Text style={styles.infoLabel}>Speed</Text>
                 </View>
 
                 <View style={styles.verticalDivider} />
 
                 <View style={styles.infoItemContainer}>
-                  <View style={{ position: 'relative' }}>
-                    <Image
-                      source={TEMP_BG}
-                      style={styles.iconBackground}
-                      resizeMode="contain"
-                    />
+                  <View style={styles.iconWrapper}>
+                    <Image source={TEMP_BG} style={styles.iconBackground} resizeMode="contain" />
                     <View style={styles.iconCircle}>
                       <Text style={styles.tempIcon}>🌡️</Text>
                     </View>
                   </View>
-                  <Text style={[styles.infoNumberValue, styles.infoValueLandscape]}>
+                  <Text style={[styles.infoNumberValue, { fontSize: infoValueFontSize }]}>
                     {loadingWeather ? '...' : temperature !== null ? `${temperature > 0 ? '+' : ''}${temperature}°c` : 'N/A'}
                   </Text>
                   <Text style={styles.infoLabel}>Outside</Text>
@@ -330,74 +394,83 @@ export default function App() {
               </View>
             </View>
 
-            <View style={styles.gaugeContainer}>
+            {/* Right Gauge - ROLL */}
+            <View style={styles.landscapeGauge}>
               <Gauge
                 value={roll_land}
                 color="#ff8c00"
                 title="ROLL"
                 carImage={CAR_REAR_IMAGE}
-                isLandscape={orientation}
+                isLandscape={isLandscape}
+                screenWidth={screenWidth}
+                screenHeight={screenHeight}
               />
             </View>
           </View>
         ) : (
-          <View style={[styles.portraitLayoutContainer]}>
+          /* ===== PORTRAIT LAYOUT ===== */
+          /* Structure: Altitude -> Pitch/Roll Gauges -> Speed/Temp Info */
+          <View style={styles.portraitContainer}>
+            {/* Altitude at Top */}
             <View style={styles.portraitAltitudeSection}>
-              <Text style={[styles.altitude, styles.altitudePortrait]}>
+              <Text style={[styles.altitude, { fontSize: altitudeFontSize }]}>
                 {altitude.toLocaleString()} m
               </Text>
             </View>
 
-            <View style={styles.portraitRollSection}>
-              <Gauge
-                value={roll}
-                color="#ff8c00"
-                title="ROLL"
-                carImage={CAR_REAR_IMAGE}
-                isLandscape={orientation}
-              />
+            {/* Gauges Container - Scrollable area */}
+            <View style={styles.portraitGaugesWrapper}>
+              {/* ROLL Gauge */}
+              <View style={styles.portraitGaugeItem}>
+                <Gauge
+                  value={roll}
+                  color="#ff8c00"
+                  title="ROLL"
+                  carImage={CAR_REAR_IMAGE}
+                  isLandscape={isLandscape}
+                  screenWidth={screenWidth}
+                  screenHeight={screenHeight}
+                />
+              </View>
+
+              {/* PITCH Gauge - Below Roll */}
+              <View style={styles.portraitGaugeItem}>
+                <Gauge
+                  value={pitch}
+                  color="#7cfc00"
+                  title="PITCH"
+                  carImage={CAR_SIDE_IMAGE}
+                  isLandscape={isLandscape}
+                  screenWidth={screenWidth}
+                  screenHeight={screenHeight}
+                />
+              </View>
             </View>
 
-            <View style={styles.portraitPitchSection}>
-              <Gauge
-                value={pitch}
-                color="#7cfc00"
-                title="PITCH"
-                carImage={CAR_SIDE_IMAGE}
-                isLandscape={orientation}
-              />
-            </View>
-
+            {/* Bottom Info Row */}
             <View style={styles.portraitBottomInfoRow}>
               <View style={styles.portraitInfoItem}>
-                <View style={{ position: 'relative' }}>
-                  <Image
-                    source={SPEED_BG}
-                    style={styles.iconBackgroundPortrait}
-                    resizeMode="contain"
-                  />
+                <View style={styles.iconWrapper}>
+                  <Image source={SPEED_BG} style={styles.iconBackgroundPortrait} resizeMode="contain" />
                   <View style={[styles.iconCircle, styles.portraitIcon]}>
-                    <Text style={styles.speedIcon}></Text>
+                    <Text style={styles.speedIcon}>🏎️</Text>
                   </View>
                 </View>
                 <View style={styles.portraitValueAndLabel}>
-                  <Text style={styles.portraitInfoValue}>{speed} km/h</Text>
+                  <Text style={[styles.portraitInfoValue, { fontSize: infoValueFontSize }]}>{speed} km/h</Text>
                   <Text style={styles.portraitBottomLabel}>Speed</Text>
                 </View>
               </View>
+
               <View style={styles.portraitInfoItem}>
-                <View style={{ position: 'relative' }}>
-                  <Image
-                    source={TEMP_BG}
-                    style={styles.iconBackgroundPortrait}
-                    resizeMode="contain"
-                  />
+                <View style={styles.iconWrapper}>
+                  <Image source={TEMP_BG} style={styles.iconBackgroundPortrait} resizeMode="contain" />
                   <View style={[styles.iconCircle, styles.portraitIcon]}>
-                    <Text style={styles.tempIcon}></Text>
+                    <Text style={styles.tempIcon}>🌡️</Text>
                   </View>
                 </View>
                 <View style={styles.portraitValueAndLabel}>
-                  <Text style={styles.portraitInfoValue}>
+                  <Text style={[styles.portraitInfoValue, { fontSize: infoValueFontSize }]}>
                     {loadingWeather ? '...' : temperature !== null ? `${temperature > 0 ? '+' : ''}${temperature}°c` : 'N/A'}
                   </Text>
                   <Text style={styles.portraitBottomLabel}>Outside</Text>
@@ -407,6 +480,7 @@ export default function App() {
           </View>
         )}
 
+        {/* Calibrate Button */}
         <TouchableOpacity style={styles.calibrateButton} onPress={calibrate}>
           <Text style={styles.calibrateText}>⚙ CALIBRATE / RESET ZERO</Text>
         </TouchableOpacity>
@@ -415,31 +489,116 @@ export default function App() {
   );
 }
 
+// ===== STYLES =====
 const styles = StyleSheet.create({
-  background: { 
+  background: {
     flex: 1,
     backgroundColor: '#000',
   },
   container: {
     flex: 1,
     backgroundColor: 'transparent',
-    justifyContent: 'space-between',
-    paddingVertical: 15,
   },
-  mainRow: {
+
+  // ===== ORIENTATION BUTTON =====
+  orientationButton: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+    zIndex: 100,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderWidth: 2,
+    borderColor: '#00e5ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  orientationIcon: {
+    fontSize: 20,
+  },
+
+  // ===== LANDSCAPE LAYOUT =====
+  landscapeContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: '2%',
+    paddingTop: 10,
+  },
+  landscapeGauge: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  landscapeCenterPanel: {
+    flex: 1.2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+
+  // ===== PORTRAIT LAYOUT =====
+  portraitContainer: {
+    flex: 1,
+    alignItems: 'center',
+    paddingTop: 20,
+  },
+  portraitAltitudeSection: {
+    alignItems: 'center',
+    marginTop: 25,
+    marginBottom: 10,
+  },
+  portraitGaugesWrapper: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 15,
+  },
+  portraitGaugeItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  portraitBottomInfoRow: {
+    flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    flex: 1,
-    marginTop: 45,
+    width: '90%',
+    backgroundColor: 'rgba(0, 0, 0, 0.27)',
+    borderRadius: 12,
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    marginBottom: 70,
   },
-  landscape: {
-    flexDirection: 'row',
-  },
-  gaugeContainer: {
+  portraitInfoItem: {
     alignItems: 'center',
     flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
+  portraitValueAndLabel: {
+    alignItems: 'center',
+  },
+  portraitInfoValue: {
+    fontWeight: 'bold',
+    color: '#fff',
+    textShadowColor: 'rgba(0,255,255,0.4)',
+    textShadowRadius: 6,
+    marginBottom: 2,
+  },
+  portraitIcon: {
+    marginRight: 8,
+  },
+  portraitBottomLabel: {
+    fontSize: 12,
+    color: '#999',
+    letterSpacing: 0.3,
+  },
+
+  // ===== SHARED STYLES =====
   gaugeTitle: {
     fontWeight: 'bold',
     marginBottom: 6,
@@ -447,12 +606,6 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowRadius: 8,
     textShadowOffset: { width: 0, height: 2 },
-  },
-  altitudeAndInfoPanel: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 15,
-    paddingVertical: 10,
   },
   altitude: {
     fontWeight: 'bold',
@@ -462,14 +615,6 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
     letterSpacing: -1,
   },
-  altitudeLandscape: {
-    fontSize: 50,
-    marginBottom: 18,
-  },
-  altitudePortrait: {
-    fontSize: 50,
-    marginBottom: 18,
-  },
   speedAndTemperatureRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -478,10 +623,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 10,
+    marginTop: 15,
   },
   infoItemContainer: {
     alignItems: 'center',
     paddingHorizontal: 12,
+  },
+  iconWrapper: {
+    position: 'relative',
   },
   iconBackground: {
     position: 'absolute',
@@ -515,15 +664,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   infoNumberValue: {
-    fontSize: 22,
     fontWeight: 'bold',
     color: '#fff',
     textShadowColor: 'rgba(0,255,255,0.4)',
     textShadowRadius: 6,
     marginBottom: 3,
-  },
-  infoValueLandscape: {
-    fontSize: 26,
   },
   infoLabel: {
     fontSize: 12,
@@ -537,6 +682,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   calibrateButton: {
+    position: 'absolute',
+    bottom: 15,
     alignSelf: 'center',
     backgroundColor: 'rgba(0,0,0,0.6)',
     paddingHorizontal: 25,
@@ -544,71 +691,11 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     borderWidth: 2,
     borderColor: '#00e5ff',
-    marginBottom: 8,
   },
   calibrateText: {
     color: '#00e5ff',
     fontSize: 14,
     fontWeight: 'bold',
     letterSpacing: 1,
-  },
-  portraitLayoutContainer: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 20,
-  },
-  portraitAltitudeSection: {
-    alignItems: 'center',
-    marginBottom: 10,
-    marginTop: 20
-  },
-  portraitRollSection: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: '28%'
-  },
-  portraitPitchSection: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: '35%'
-  },
-  portraitBottomInfoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    width: '100%',
-    backgroundColor: 'rgba(0, 0, 0, 0.27)',
-    borderRadius: 12,
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    position: 'absolute',
-    bottom: 50,
-  },
-  portraitInfoItem: {
-    alignItems: 'center',
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  portraitInfoValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#fff',
-    textShadowColor: 'rgba(0,255,255,0.4)',
-    textShadowRadius: 6,
-    marginBottom: 2,
-  },
-  portraitIcon: {
-    marginRight: 8,
-    marginTop: 0,
-  },
-  portraitValueAndLabel: {
-    alignItems: 'center',
-  },
-  portraitBottomLabel: {
-    fontSize: 12,
-    color: '#999',
-    letterSpacing: 0.3,
   },
 });

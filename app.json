@@ -1,11 +1,11 @@
 {
   "expo": {
-  "name": "Car Dashboard",
-  "slug": "CarDashboardApp",
-  "version": "1.0.0",
-  "cli": {
-    "appVersionSource": "remote"
-  },
+    "name": "Car Dashboard",
+    "slug": "CarDashboardApp",
+    "version": "1.0.0",
+    "cli": {
+      "appVersionSource": "remote"
+    },
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -40,7 +40,9 @@
         "INTERNET",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
-      ]
+      ],
+      "allowBackup": false,
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -52,7 +54,15 @@
           "locationAlwaysAndWhenInUsePermission": "Allow Car Dashboard to use your location for altitude and speed tracking."
         }
       ],
-      "expo-sensors"
+      "expo-sensors",
+      [
+        "expo-screen-orientation",
+        {
+          "initialOrientation": "DEFAULT"
+        }
+      ],
+      "./plugins/withAndroidFeatures.js",
+      "./plugins/withWidget.js"
     ],
     "extra": {
       "eas": {
