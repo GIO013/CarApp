@@ -81,40 +81,6 @@ const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, 
             </RadialGradient>
           </Defs>
 
-          <Circle
-            cx={center}
-            cy={center}
-            r={radius}
-            fill="none"
-            stroke={color}
-            strokeWidth={Math.max(20, size * 0.12)}
-            strokeDasharray={`${arcLength} ${circumference}`}
-            strokeDashoffset={circumference * 0.25 + offset}
-            strokeLinecap="round"
-            opacity={0.25}
-          />
-
-          <Circle
-            cx={center}
-            cy={center}
-            r={radius}
-            fill="none"
-            stroke={color}
-            strokeWidth={Math.max(16, size * 0.1)}
-            strokeDasharray={`${arcLength} ${circumference}`}
-            strokeDashoffset={circumference * 0.25 + offset}
-            strokeLinecap="round"
-            opacity={0.95}
-          />
-
-          <Circle
-            cx={center}
-            cy={center}
-            r={radius + 25}
-            fill={`url(#glow-${title})`}
-            opacity={0.2}
-          />
-
           {ticks.map((deg) => {
             const angle = (deg / max) * 90;
             const rad = ((angle - 90) * Math.PI) / 180;
