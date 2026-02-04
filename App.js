@@ -31,7 +31,7 @@ const SPEED_BG = require('./assets/images/speed.png');
 const TEMP_BG = require('./assets/images/temperature.png');
 
 // ===== RESPONSIVE GAUGE COMPONENT =====
-const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, isLandscape, screenWidth, screenHeight }) => {
+const Gauge = ({ value, max = 50, color = 'rgb(0, 255, 136)', title = 'PITCH', carImage, isLandscape, screenWidth, screenHeight }) => {
   // Responsive sizing based on screen dimensions
   const size = isLandscape
     ? Math.min(screenHeight * 0.38, screenWidth * 0.25)
@@ -502,8 +502,9 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingTop: 20,
-    borderWidth: 5,
+    // borderWidth: 5,
     marginBottom: 50
+    // ,
     // borderWidth: 5,
     // borderColor: 'rgba(255, 0, 0, 0.98)'
   },
@@ -520,6 +521,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-evenly'
+    // ,
     // borderWidth: 5,
     // borderColor: 'rgb(85, 73, 139)'
   },
@@ -529,6 +531,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 100
+    // ,
     // borderWidth: 5,
     // borderColor: 'rgba(255, 0, 0, 0.98)'
   },
@@ -563,7 +566,7 @@ const styles = StyleSheet.create({
   },
   portraitBottomLabel: {
     fontSize: 12,
-    color: '#999',
+    color: 'rgb(153, 153, 153)',
     letterSpacing: 0.3
     // borderWidth: 5,
     // borderColor: 'rgba(242, 245, 68, 0.98)'
@@ -628,7 +631,7 @@ const styles = StyleSheet.create({
   },
   infoNumberValue: {
     fontWeight: 'bold',
-    color: '#fff',
+    color: 'rgb(255, 255, 255)',
     textShadowColor: 'rgba(0,255,255,0.4)',
     textShadowRadius: 6,
     marginBottom: 3,
@@ -637,13 +640,13 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 12,
-    color: '#999',
+    color: 'rgb(153, 153, 153)',
     letterSpacing: 0.3,
   },
   verticalDivider: {
     width: 1,
     height: 60,
-    backgroundColor: '#333',
+    backgroundColor: 'rgb(51, 51, 51)',
     marginHorizontal: 4,
   },
   calibrateButton: {

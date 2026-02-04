@@ -36,14 +36,24 @@ const withPiPActivity = (config) => {
   return withMainActivity(config, async (config) => {
     const mainActivity = config.modResults;
 
-    // Add imports for Kotlin
+    // Add imports for Kotlin (only if not already present)
+    const importsToAdd = [];
+
     if (!mainActivity.contents.includes('import android.app.PictureInPictureParams')) {
-      const importStatement = `
-import android.app.PictureInPictureParams
-import android.util.Rational
-import android.os.Build
-import android.content.res.Configuration
-`;
+      importsToAdd.push('import android.app.PictureInPictureParams');
+    }
+    if (!mainActivity.contents.includes('import android.util.Rational')) {
+      importsToAdd.push('import android.util.Rational');
+    }
+    if (!mainActivity.contents.includes('import android.os.Build')) {
+      importsToAdd.push('import android.os.Build');
+    }
+    if (!mainActivity.contents.includes('import android.content.res.Configuration')) {
+      importsToAdd.push('import android.content.res.Configuration');
+    }
+
+    if (importsToAdd.length > 0) {
+      const importStatement = '\n' + importsToAdd.join('\n');
       mainActivity.contents = mainActivity.contents.replace(
         'import android.os.Bundle',
         'import android.os.Bundle' + importStatement
