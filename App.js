@@ -38,27 +38,30 @@ const TEMP_BG = require('./assets/images/temperature.png');
 const Gauge = ({ value, max = 50, color = 'rgb(0, 255, 136)', title = 'PITCH', carImage, isLandscape, screenWidth, screenHeight }) => {
   // Responsive sizing based on screen dimensions
   const size = isLandscape
-    ? Math.min(screenHeight * 0.38, screenWidth * 0.25)
-    : Math.min(screenWidth * 0.36, screenHeight * 0.22);
+    ? Math.min(screenHeight * 0.65, screenWidth * 0.38)
+    : Math.min(screenWidth * 0.48, screenHeight * 0.35);
 
   const center = size / 2;
   const radius = size * 0.36;
-  const circumference = 2 * Math.PI * radius;
-  
-
-  const normalizedValue = Math.max(-max, Math.min(max, value));
-  const progress = (normalizedValue + max) / (2 * max);
-
-  const arcLength = circumference / 2;
-  const offset = arcLength * (1 - progress);
 
   const carTilt = value * 1.5;
 
-  const ticks = [-40, -30, -20, -10, 10, 20, 30, 40];
-  const majorTicks = [-30, -20, -10, 10, 20, 30];
+  // Tick marks - მთელი წრის გარშემო განაწილებული
+  // 0° = მარცხნივ და მარჯვნივ (მანქანის დონეზე, ჰორიზონტალური)
+  // +90° = ზემოთ (მაქსიმალური დადებითი დახრა)
+  // -90° = ქვემოთ (მაქსიმალური უარყოფითი დახრა)
+  // ზედა მარცხენა/მარჯვენა = პლუსები, ქვედა მარცხენა/მარჯვენა = მინუსები
+  const majorTickValues = [0, 30, 60];
+  const minorTickValues = [15, 45, 75];
 
-  // Responsive font size
+  // Tick-ების რადიუსი - წრის გარეთ
+  const tickInnerRadius = size * 0.40;
+  const tickOuterRadius = size * 0.44;
+  const labelRadius = size * 0.48;
+
+  // Responsive font sizes
   const titleFontSize = isLandscape ? Math.max(14, size * 0.1) : Math.max(12, size * 0.09);
+  const tickFontSize = Math.max(8, size * 0.055);
 
   return (
     <View style={{ alignItems: 'center' }}>
@@ -79,58 +82,74 @@ const Gauge = ({ value, max = 50, color = 'rgb(0, 255, 136)', title = 'PITCH', c
         />
 
         <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-          <Defs>
-            <RadialGradient id={`glow-${title}`} cx="50%" cy="50%">
-              <Stop offset="0%" stopColor={color} stopOpacity="0.5" />
-              <Stop offset="100%" stopColor={color} stopOpacity="0" />
-            </RadialGradient>
-          </Defs>
+          {/*
+            4 კვადრანტი:
+            - ზედა მარცხენა (180°-270°): +30°, +60° (პლუსები)
+            - ზედა მარჯვენა (270°-360°): +30°, +60° (პლუსები)
+            - ქვედა მარცხენა (90°-180°): -30°, -60° (მინუსები)
+            - ქვედა მარჯვენა (0°-90°): -30°, -60° (მინუსები)
+            - 0° = მარცხნივ (180°) და მარჯვნივ (0°/360°)
+          */}
 
-          {ticks.map((deg) => {
-            const angle = (deg / max) * 90;
-            const rad = ((angle - 90) * Math.PI) / 180;
-            const innerRadius = radius + 18;
-            const outerRadius = radius + 35;
-            const labelRadius = radius + 50;
+          {/* ყველა 4 კვადრანტის tick marks */}
+          {[...majorTickValues, ...minorTickValues].map((tickValue) => {
+            const isMajor = majorTickValues.includes(tickValue);
+            const innerR = isMajor ? tickInnerRadius - 2 : tickInnerRadius;
+            const outerR = isMajor ? tickOuterRadius + 2 : tickOuterRadius;
 
-            const x1 = center + innerRadius * Math.cos(rad);
-            const y1 = center + innerRadius * Math.sin(rad);
-            const x2 = center + outerRadius * Math.cos(rad);
-            const y2 = center + outerRadius * Math.sin(rad);
-            const labelX = center + labelRadius * Math.cos(rad);
-            const labelY = center + labelRadius * Math.sin(rad);
+            // 4 პოზიცია თითოეული tick value-სთვის
+            const positions = [
+              { angle: 180 + tickValue, label: tickValue === 0 ? '0°' : `+${tickValue}°`, quadrant: 'top-left' },    // ზედა მარცხენა (+)
+              { angle: 360 - tickValue, label: tickValue === 0 ? '0°' : `+${tickValue}°`, quadrant: 'top-right' },   // ზედა მარჯვენა (+)
+              { angle: 180 - tickValue, label: tickValue === 0 ? '0°' : `-${tickValue}°`, quadrant: 'bottom-left' }, // ქვედა მარცხენა (-)
+              { angle: tickValue, label: tickValue === 0 ? '0°' : `-${tickValue}°`, quadrant: 'bottom-right' },      // ქვედა მარჯვენა (-)
+            ];
 
-            const isMajor = majorTicks.includes(deg);
+            return positions.map((pos, idx) => {
+              const rad = (pos.angle * Math.PI) / 180;
+              const x1 = center + innerR * Math.cos(rad);
+              const y1 = center + innerR * Math.sin(rad);
+              const x2 = center + outerR * Math.cos(rad);
+              const y2 = center + outerR * Math.sin(rad);
+              const labelX = center + labelRadius * Math.cos(rad);
+              const labelY = center + labelRadius * Math.sin(rad);
 
-            return (
-              <React.Fragment key={deg}>
-                <Line
-                  // x1={x1}
-                  // y1={y1}
-                  // x2={x2}
-                  // y2={y2}
-                  // stroke={color}
-                  // strokeWidth={isMajor ? 4 : 2.5}
-                  // opacity={0.8}
-                />
-                {isMajor && (
-                  <SvgText
-                    x={labelX}
-                    y={labelY}
-                    fontSize="11"
-                    fill={color}
-                    textAnchor="middle"
-                    alignmentBaseline="middle"
-                    opacity={0.7}
-                    fontWeight="400"
-                  >
-                    {deg > 0 ? `-${deg}°` : `${Math.abs(deg)}°`}
-                  </SvgText>
-                )}
-              </React.Fragment>
-            );
+              // 0°-ზე მხოლოდ მარცხენა და მარჯვენა აჩვენოს (არა 4-ჯერ)
+              const showLabel = isMajor && (tickValue !== 0 || (idx === 0 || idx === 1));
+              // 0°-ზე არ აჩვენოს ლეიბლი საერთოდ (მხოლოდ tick line)
+              const skipZeroLabel = tickValue === 0;
+
+              return (
+                <React.Fragment key={`tick-${tickValue}-${idx}`}>
+                  <Line
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
+                    stroke={color}
+                    strokeWidth={isMajor ? 2.5 : 1.5}
+                    opacity={isMajor ? 0.9 : 0.5}
+                  />
+                  {showLabel && !skipZeroLabel && (
+                    <SvgText
+                      x={labelX}
+                      y={labelY}
+                      fontSize={tickFontSize}
+                      fill={color}
+                      textAnchor="middle"
+                      alignmentBaseline="middle"
+                      opacity={0.8}
+                      fontWeight="500"
+                    >
+                      {pos.label}
+                    </SvgText>
+                  )}
+                </React.Fragment>
+              );
+            });
           })}
 
+          {/* Car image ცენტრში */}
           <SvgImage
             href={carImage}
             x={center - size * 0.44}
@@ -346,7 +365,7 @@ export default function App() {
 
         {isLandscape ? (
           /* ===== LANDSCAPE LAYOUT ===== */
-          <View style={styles.landscapeContainer}>
+          <View key="landscape" style={styles.landscapeContainer}>
             {/* Left Gauge - PITCH */}
             <View style={styles.landscapeGauge}>
               <Gauge
@@ -369,7 +388,7 @@ export default function App() {
               <View style={styles.speedAndTemperatureRow}>
                 <View style={styles.infoItemContainer}>
                   <View style={styles.iconWrapper}>
-                    <Image source={SPEED_BG} style={styles.iconBackground} resizeMode="contain" />
+                    {/* <Image source={SPEED_BG} style={styles.iconBackground} resizeMode="contain" /> */}
                     <View style={styles.iconCircle}>
                       <Text style={styles.speedIcon}></Text>
                     </View>
@@ -382,7 +401,7 @@ export default function App() {
 
                 <View style={styles.infoItemContainer}>
                   <View style={styles.iconWrapper}>
-                    <Image source={TEMP_BG} style={styles.iconBackground} resizeMode="contain" />
+                    {/* <Image source={TEMP_BG} style={styles.iconBackground} resizeMode="contain" /> */}
                     <View style={styles.iconCircle}>
                       <Text style={styles.tempIcon}></Text>
                     </View>
@@ -411,7 +430,7 @@ export default function App() {
         ) : (
           /* ===== PORTRAIT LAYOUT ===== */
           /* Structure: Altitude -> Pitch/Roll Gauges -> Speed/Temp Info */
-          <View style={styles.portraitContainer}>
+          <View key="portrait" style={styles.portraitContainer}>
             {/* Altitude at Top */}
             <View style={styles.portraitAltitudeSection}>
               <Text style={[styles.altitude, { fontSize: altitudeFontSize }]}>
@@ -514,29 +533,34 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: '2%',
     paddingTop: 10,
-    // borderWidth: 5,
-    // borderColor: 'rgba(255, 0, 0, 0.98)'
+    borderWidth: 5,
+    borderColor: 'rgba(255, 0, 0, 0.98)'
   },
   landscapeGauge: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
     // borderWidth: 5,
-    // borderColor: 'rgba(255, 0, 0, 0.98)'
+    // borderColor: 'rgba(111, 255, 0, 0.98)'
   },
   landscapeCenterPanel: {
     flex: 1.2,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     paddingHorizontal: 10,
+    paddingTop: 1,
+    paddingBottom: 50,
+    // borderWidth: 5,
+    // borderColor: 'rgba(0, 128, 255, 0.98)'
   },
 
   // ===== PORTRAIT LAYOUT =====
   portraitContainer: {
     flex: 1,
+    width: '100%',
     alignItems: 'center',
+    justifyContent: 'flex-start',
     paddingTop: 20,
-    // borderWidth: 5,
     marginBottom: 50
     // ,
     // borderWidth: 5,
@@ -550,7 +574,8 @@ const styles = StyleSheet.create({
     // borderColor: 'rgba(255, 0, 0, 0.98)'
   },
   portraitGaugesWrapper: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 0,
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
@@ -560,8 +585,9 @@ const styles = StyleSheet.create({
     // borderColor: 'rgb(85, 73, 139)'
   },
   portraitGaugeItem: {
-    flex: 1,
-    width: '100%',
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: '50%',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 100
@@ -578,7 +604,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 15,
     paddingHorizontal: 20,
-    marginBottom: 70
+    marginBottom: 150,
     // borderWidth: 5,
     // borderColor: 'rgba(30, 255, 0, 0.98)'
   },
@@ -627,11 +653,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.27)',
+    backgroundColor: 'rgba(0, 0, 0, 0)',
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 10,
-    marginTop: 15,
+    marginTop: 5,
+    // borderWidth: 5,
+    // borderColor: 'rgba(180, 82, 40, 0.98)'
   },
   infoItemContainer: {
     alignItems: 'center',
@@ -647,16 +675,18 @@ const styles = StyleSheet.create({
     top: -7.5,
     left: -7.5,
     opacity: 0.7,
+    // borderWidth: 5,
+    // borderColor: 'rgba(78, 215, 151, 0.98)'
   },
-  iconCircle: {
-    width: 35,
-    height: 35,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
+  // iconCircle: {
+  //   width: 35,
+  //   height: 35,
+  //   borderRadius: 18,
+  //   backgroundColor: 'rgba(255,255,255,0.05)',
+  //   alignItems: 'center',
+  //   justifyContent: 'center',
+  //   marginBottom: 6,
+  // },
   speedIcon: {
     fontSize: 18,
   },
@@ -676,6 +706,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgb(153, 153, 153)',
     letterSpacing: 0.3,
+    // borderWidth: 5,
+    // borderColor: 'rgba(78, 215, 151, 0.98)'
   },
   verticalDivider: {
     width: 1,

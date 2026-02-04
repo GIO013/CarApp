@@ -7,71 +7,104 @@ const path = require('path');
  * Allows React Native to send data to Android Widgets via SharedPreferences
  */
 
+// Expo Module class (Kotlin)
 const widgetModuleClass = `
-package com.cardashboard.app;
+package com.cardashboard.app
 
-import android.appwidget.AppWidgetManager;
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.Intent;
-import android.content.SharedPreferences;
-
-import expo.modules.kotlin.modules.Module;
-import expo.modules.kotlin.modules.ModuleDefinition;
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import expo.modules.kotlin.modules.Module
+import expo.modules.kotlin.modules.ModuleDefinition
 
 class WidgetModule : Module() {
     override fun definition() = ModuleDefinition {
         Name("WidgetModule")
 
-        Function("updateWidgetData") { pitch: Double, roll: Double, altitude: Int, speed: Int, temperature: Int ->
+        Function("updateWidgetData") { pitch: Int, roll: Int, altitude: Int, speed: Int, temperature: Int ->
             val context = appContext.reactContext ?: return@Function false
 
-            val prefs = context.getSharedPreferences("CarDashboardData", Context.MODE_PRIVATE)
-            prefs.edit().apply {
-                putInt("pitch", pitch.toInt())
-                putInt("roll", roll.toInt())
+            // Save to SharedPreferences
+            val prefs = context.getSharedPreferences("CarDashboardWidget", Context.MODE_PRIVATE)
+            with(prefs.edit()) {
+                putInt("pitch", pitch)
+                putInt("roll", roll)
                 putInt("altitude", altitude)
                 putInt("speed", speed)
                 putInt("temperature", temperature)
                 putLong("lastUpdate", System.currentTimeMillis())
-                apply()
+                commit()
             }
 
-            // Trigger widget updates
-            val intent = Intent(context, CarDashboardWidget::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-            }
+            // Trigger all widget updates
             val widgetManager = AppWidgetManager.getInstance(context)
 
-            // Update compact widget
-            val compactIds = widgetManager.getAppWidgetIds(
-                ComponentName(context, CarDashboardWidget::class.java)
-            )
-            intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, compactIds)
-            context.sendBroadcast(intent)
-
-            // Update full portrait widget
-            val portraitIntent = Intent(context, CarDashboardWidgetPortrait::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            // Update Compact Widget
+            try {
+                val compactIds = widgetManager.getAppWidgetIds(
+                    ComponentName(context, CarDashboardWidget::class.java)
+                )
+                if (compactIds.isNotEmpty()) {
+                    val intent = Intent(context, CarDashboardWidget::class.java).apply {
+                        action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, compactIds)
+                    }
+                    context.sendBroadcast(intent)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-            val portraitIds = widgetManager.getAppWidgetIds(
-                ComponentName(context, CarDashboardWidgetPortrait::class.java)
-            )
-            portraitIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, portraitIds)
-            context.sendBroadcast(portraitIntent)
 
-            // Update full landscape widget
-            val landscapeIntent = Intent(context, CarDashboardWidgetLandscape::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            // Update Portrait Widget
+            try {
+                val portraitIds = widgetManager.getAppWidgetIds(
+                    ComponentName(context, CarDashboardWidgetPortrait::class.java)
+                )
+                if (portraitIds.isNotEmpty()) {
+                    val intent = Intent(context, CarDashboardWidgetPortrait::class.java).apply {
+                        action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, portraitIds)
+                    }
+                    context.sendBroadcast(intent)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
-            val landscapeIds = widgetManager.getAppWidgetIds(
-                ComponentName(context, CarDashboardWidgetLandscape::class.java)
-            )
-            landscapeIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, landscapeIds)
-            context.sendBroadcast(landscapeIntent)
+
+            // Update Landscape Widget
+            try {
+                val landscapeIds = widgetManager.getAppWidgetIds(
+                    ComponentName(context, CarDashboardWidgetLandscape::class.java)
+                )
+                if (landscapeIds.isNotEmpty()) {
+                    val intent = Intent(context, CarDashboardWidgetLandscape::class.java).apply {
+                        action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, landscapeIds)
+                    }
+                    context.sendBroadcast(intent)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
 
             return@Function true
         }
+    }
+}
+`;
+
+// Expo Package for registration
+const widgetPackageClass = `
+package com.cardashboard.app
+
+import android.content.Context
+import expo.modules.core.interfaces.Package
+import expo.modules.core.interfaces.ReactActivityLifecycleListener
+
+class WidgetPackage : Package {
+    override fun createReactActivityLifecycleListeners(activityContext: Context): List<ReactActivityLifecycleListener> {
+        return emptyList()
     }
 }
 `;
@@ -90,9 +123,16 @@ const withWidgetModule = (config) => {
                     fs.mkdirSync(packagePath, { recursive: true });
                 }
 
+                // Write Widget Module
                 fs.writeFileSync(
                     path.join(packagePath, 'WidgetModule.kt'),
                     widgetModuleClass.trim()
+                );
+
+                // Write Widget Package
+                fs.writeFileSync(
+                    path.join(packagePath, 'WidgetPackage.kt'),
+                    widgetPackageClass.trim()
                 );
             }
 
