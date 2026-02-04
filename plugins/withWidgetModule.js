@@ -1,0 +1,104 @@
+const { withDangerousMod } = require('@expo/config-plugins');
+const fs = require('fs');
+const path = require('path');
+
+/**
+ * Native Module for Widget Data Communication
+ * Allows React Native to send data to Android Widgets via SharedPreferences
+ */
+
+const widgetModuleClass = `
+package com.cardashboard.app;
+
+import android.appwidget.AppWidgetManager;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+
+import expo.modules.kotlin.modules.Module;
+import expo.modules.kotlin.modules.ModuleDefinition;
+
+class WidgetModule : Module() {
+    override fun definition() = ModuleDefinition {
+        Name("WidgetModule")
+
+        Function("updateWidgetData") { pitch: Double, roll: Double, altitude: Int, speed: Int, temperature: Int ->
+            val context = appContext.reactContext ?: return@Function false
+
+            val prefs = context.getSharedPreferences("CarDashboardData", Context.MODE_PRIVATE)
+            prefs.edit().apply {
+                putInt("pitch", pitch.toInt())
+                putInt("roll", roll.toInt())
+                putInt("altitude", altitude)
+                putInt("speed", speed)
+                putInt("temperature", temperature)
+                putLong("lastUpdate", System.currentTimeMillis())
+                apply()
+            }
+
+            // Trigger widget updates
+            val intent = Intent(context, CarDashboardWidget::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            }
+            val widgetManager = AppWidgetManager.getInstance(context)
+
+            // Update compact widget
+            val compactIds = widgetManager.getAppWidgetIds(
+                ComponentName(context, CarDashboardWidget::class.java)
+            )
+            intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, compactIds)
+            context.sendBroadcast(intent)
+
+            // Update full portrait widget
+            val portraitIntent = Intent(context, CarDashboardWidgetPortrait::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            }
+            val portraitIds = widgetManager.getAppWidgetIds(
+                ComponentName(context, CarDashboardWidgetPortrait::class.java)
+            )
+            portraitIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, portraitIds)
+            context.sendBroadcast(portraitIntent)
+
+            // Update full landscape widget
+            val landscapeIntent = Intent(context, CarDashboardWidgetLandscape::class.java).apply {
+                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            }
+            val landscapeIds = widgetManager.getAppWidgetIds(
+                ComponentName(context, CarDashboardWidgetLandscape::class.java)
+            )
+            landscapeIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, landscapeIds)
+            context.sendBroadcast(landscapeIntent)
+
+            return@Function true
+        }
+    }
+}
+`;
+
+const withWidgetModule = (config) => {
+    return withDangerousMod(config, [
+        'android',
+        async (config) => {
+            const projectRoot = config.modRequest.projectRoot;
+            const androidPath = path.join(projectRoot, 'android');
+
+            if (fs.existsSync(androidPath)) {
+                const packagePath = path.join(androidPath, 'app/src/main/java/com/cardashboard/app');
+
+                if (!fs.existsSync(packagePath)) {
+                    fs.mkdirSync(packagePath, { recursive: true });
+                }
+
+                fs.writeFileSync(
+                    path.join(packagePath, 'WidgetModule.kt'),
+                    widgetModuleClass.trim()
+                );
+            }
+
+            return config;
+        },
+    ]);
+};
+
+module.exports = withWidgetModule;

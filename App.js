@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,16 @@ import {
   useWindowDimensions,
   AppState,
   Platform,
+  NativeModules,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
 import { Accelerometer } from 'expo-sensors';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import Svg, { Circle, Line, Text as SvgText, Image as SvgImage, Defs, RadialGradient, Stop } from 'react-native-svg';
+
+// Widget Module for updating Android widgets
+const WidgetModule = NativeModules.WidgetModule;
 
 // Background images
 const BACKGROUND_PORTRAIT = require('./assets/images/background_portrait.jpg');
@@ -171,11 +175,41 @@ export default function App() {
   const [isOrientationLocked, setIsOrientationLocked] = useState(false);
   const [appState, setAppState] = useState(AppState.currentState);
 
+  // Ref for widget update throttling
+  const lastWidgetUpdate = useRef(0);
+
   // Calculated values
   const roll = Math.round((isLandscape ? rawRoll : rawPitch) - (isLandscape ? rollOffset : pitchOffset));
   const pitch = Math.round((isLandscape ? rawPitch : rawRoll) - (isLandscape ? pitchOffset : rollOffset));
   const roll_land = Math.round((isLandscape ? rawRoll : rawPitch) - (isLandscape ? rollOffset : pitchOffset));
   const pitch_land = -Math.round((isLandscape ? rawPitch : rawRoll) - (isLandscape ? pitchOffset : rollOffset));
+
+  // ===== WIDGET UPDATE FUNCTION =====
+  const updateWidget = useCallback(() => {
+    if (Platform.OS !== 'android' || !WidgetModule) return;
+
+    const now = Date.now();
+    // Throttle updates to every 2 seconds to avoid excessive calls
+    if (now - lastWidgetUpdate.current < 2000) return;
+    lastWidgetUpdate.current = now;
+
+    try {
+      WidgetModule.updateWidgetData(
+        pitch,
+        roll,
+        altitude,
+        speed,
+        temperature || 0
+      );
+    } catch (error) {
+      console.log('Widget update error:', error);
+    }
+  }, [pitch, roll, altitude, speed, temperature]);
+
+  // ===== UPDATE WIDGET WHEN DATA CHANGES =====
+  useEffect(() => {
+    updateWidget();
+  }, [pitch, roll, altitude, speed, temperature, updateWidget]);
 
   // Responsive font sizes
   const altitudeFontSize = isLandscape

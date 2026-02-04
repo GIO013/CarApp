@@ -62,7 +62,8 @@
         }
       ],
       "./plugins/withAndroidFeatures.js",
-      "./plugins/withWidget.js"
+      "./plugins/withWidget.js",
+      "./plugins/withWidgetModule.js"
     ],
     "extra": {
       "eas": {
