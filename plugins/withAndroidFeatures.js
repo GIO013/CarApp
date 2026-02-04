@@ -31,55 +31,53 @@ const withPiPAndMultiWindow = (config) => {
   });
 };
 
-// Add PiP trigger logic to MainActivity
+// Add PiP trigger logic to MainActivity (Kotlin syntax)
 const withPiPActivity = (config) => {
   return withMainActivity(config, async (config) => {
     const mainActivity = config.modResults;
 
-    // Add imports
+    // Add imports for Kotlin
     if (!mainActivity.contents.includes('import android.app.PictureInPictureParams')) {
       const importStatement = `
-import android.app.PictureInPictureParams;
-import android.util.Rational;
-import android.os.Build;
-import android.content.res.Configuration;
+import android.app.PictureInPictureParams
+import android.util.Rational
+import android.os.Build
+import android.content.res.Configuration
 `;
       mainActivity.contents = mainActivity.contents.replace(
-        'import android.os.Bundle;',
-        'import android.os.Bundle;' + importStatement
+        'import android.os.Bundle',
+        'import android.os.Bundle' + importStatement
       );
     }
 
-    // Add onUserLeaveHint for auto-PiP when pressing Home
+    // Add onUserLeaveHint for auto-PiP when pressing Home (Kotlin syntax)
     if (!mainActivity.contents.includes('onUserLeaveHint')) {
       const pipMethod = `
-  @Override
-  public void onUserLeaveHint() {
-    super.onUserLeaveHint();
+
+  override fun onUserLeaveHint() {
+    super.onUserLeaveHint()
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      enterPiPMode();
+      enterPiPMode()
     }
   }
 
-  private void enterPiPMode() {
+  private fun enterPiPMode() {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      Rational aspectRatio = new Rational(16, 9);
-      PictureInPictureParams.Builder pipBuilder = new PictureInPictureParams.Builder();
-      pipBuilder.setAspectRatio(aspectRatio);
-      enterPictureInPictureMode(pipBuilder.build());
+      val aspectRatio = Rational(16, 9)
+      val pipBuilder = PictureInPictureParams.Builder()
+      pipBuilder.setAspectRatio(aspectRatio)
+      enterPictureInPictureMode(pipBuilder.build())
     }
   }
 
-  @Override
-  public void onConfigurationChanged(Configuration newConfig) {
-    super.onConfigurationChanged(newConfig);
+  override fun onConfigurationChanged(newConfig: Configuration) {
+    super.onConfigurationChanged(newConfig)
     // Handle configuration changes for Split-Screen
     // State is preserved through React Native's state management
   }
 
-  @Override
-  public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode, Configuration newConfig) {
-    super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
+  override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+    super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
     // React Native will handle the layout changes automatically
   }
 `;

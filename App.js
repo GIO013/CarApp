@@ -148,7 +148,7 @@ const OrientationButton = ({ isLandscape, onToggle }) => {
   return (
     <TouchableOpacity style={styles.orientationButton} onPress={onToggle}>
       <Text style={styles.orientationIcon}>
-        {isLandscape ? '📱' : '🔄'}
+        {isLandscape ? '📱' : '↳↰'}
       </Text>
     </TouchableOpacity>
   );
@@ -460,9 +460,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    color: 'rgb(255, 255, 255)',
+    textShadowColor: 'rgb(255, 255, 255)',
+    backgroundColor: 'rgba(0, 0, 0, 0)',
     borderWidth: 2,
-    borderColor: 'rgb(0, 229, 255)',
+    borderColor: 'rgb(101, 101, 101)',
     alignItems: 'center',
     justifyContent: 'center',
   },
