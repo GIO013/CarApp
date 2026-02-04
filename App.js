@@ -388,7 +388,7 @@ export default function App() {
                 {altitude.toLocaleString()} m
               </Text>
 
-              <View style={styles.speedAndTemperatureRow}>
+              <View style={styles.speedAndTemperatureRow_Land}>
                 <View style={styles.infoItemContainer}>
                   <View style={styles.iconWrapper}>
                     {/* <Image source={SPEED_BG} style={styles.iconBackground} resizeMode="contain" /> */}
@@ -471,12 +471,12 @@ export default function App() {
             </View>
 
             {/* Bottom Info Row */}
-            <View style={styles.portraitBottomInfoRow}>
+            <View style={styles.speedAndTemperatureRow_Portrait}>
               <View style={styles.portraitInfoItem}>
                 <Text style={[styles.portraitInfoValue, { fontSize: infoValueFontSize }]}>{speed} km/h</Text>
                 <Text style={styles.portraitBottomLabel}>Speed</Text>
               </View>
-
+              <View style={styles.verticalDivider} />
               <View style={styles.portraitInfoItem}>
                 <Text style={[styles.portraitInfoValue, { fontSize: infoValueFontSize }]}>
                   {loadingWeather ? '...' : temperature !== null ? `${temperature > 0 ? '+' : ''}${temperature}°c` : 'N/A'}
@@ -598,12 +598,12 @@ const styles = StyleSheet.create({
     // borderWidth: 5,
     // borderColor: 'rgba(255, 0, 0, 0.98)'
   },
-  portraitBottomInfoRow: {
+  speedAndTemperatureRow_Portrait: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     width: '90%',
-    // backgroundColor: 'rgba(0, 0, 0, 0.27)',
+    backgroundColor: 'rgba(0, 0, 0, 0.42)',
     borderRadius: 12,
     paddingVertical: 15,
     paddingHorizontal: 20,
@@ -614,16 +614,16 @@ const styles = StyleSheet.create({
   portraitInfoItem: {
     alignItems: 'center',
     flex: 1,
-    justifyContent: 'center'
+    justifyContent: 'center',
     // borderWidth: 5,
     // borderColor: 'rgba(0, 64, 255, 0.98)'
   },
   portraitInfoValue: {
     fontWeight: 'bold',
-    color: 'rgb(153, 153, 153)',
+    color: 'rgb(255, 255, 255)',
     textShadowColor: 'rgba(0,255,255,0.4)',
     textShadowRadius: 6,
-    marginBottom: 2
+    marginBottom: 2,
     // borderWidth: 5,
     // borderColor: 'rgba(255, 0, 238, 0.98)'
   },
@@ -652,11 +652,11 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
     letterSpacing: -1,
   },
-  speedAndTemperatureRow: {
+  speedAndTemperatureRow_Land: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0)',
+    backgroundColor: 'rgba(0, 0, 0, 0.42)',
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 10,
@@ -717,6 +717,8 @@ const styles = StyleSheet.create({
     height: 60,
     backgroundColor: 'rgb(51, 51, 51)',
     marginHorizontal: 4,
+    // borderWidth: 5,
+    // borderColor: 'rgba(66, 69, 147, 0.98)'
   },
   calibrateButton: {
     position: 'absolute',
