@@ -211,22 +211,41 @@ export default function App() {
     if (Platform.OS !== 'android' || !WidgetModule) return;
 
     const now = Date.now();
-    // Throttle updates to every 2 seconds to avoid excessive calls
-    if (now - lastWidgetUpdate.current < 2000) return;
-    lastWidgetUpdate.current = now;
+    const safeTemp = temperature !== null ? temperature : 0;
+    const safePitch = Math.round(pitch) || 0;
+    const safeRoll = Math.round(roll) || 0;
 
-    try {
-      WidgetModule.updateWidgetData(
-        pitch,
-        roll,
-        altitude,
-        speed,
-        temperature || 0
-      );
-    } catch (error) {
-      console.log('Widget update error:', error);
-    }
-  }, [pitch, roll, altitude, speed, temperature]);
+    // Throttle updates to every 2 seconds to avoid excessive calls
+    // if (now - lastWidgetUpdate.current < 2000) return;
+    // lastWidgetUpdate.current = now;
+
+  //   try {
+  //     WidgetModule.updateWidgetData(
+  //       pitch,
+  //       roll,
+  //       altitude,
+  //       speed,
+  //       temperature || 0
+  //     );
+  //   } catch (error) {
+  //     console.log('Widget update error:', error);
+  //   }
+  // }, [pitch, roll, altitude, speed, temperature]);
+
+  try {
+    // დარწმუნდი, რომ პარამეტრების თანმიმდევრობა ზუსტად ემთხვევა 
+    // Java/Kotlin-ის მეთოდის ხელმოწერას (Signature)
+    WidgetModule.updateWidgetData(
+      safePitch,
+      safeRoll,
+      altitude || 0,
+      speed || 0,
+      safeTemp
+    );
+  } catch (error) {
+    console.error('Widget update error:', error);
+  }
+}, [pitch, roll, altitude, speed, temperature]);
 
   // ===== UPDATE WIDGET WHEN DATA CHANGES =====
   useEffect(() => {
