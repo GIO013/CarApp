@@ -17,6 +17,8 @@ import * as Location from 'expo-location';
 import { Accelerometer } from 'expo-sensors';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import Svg, { Circle, Line, Text as SvgText, Image as SvgImage, Defs, RadialGradient, Stop } from 'react-native-svg';
+import { useKeepAwake } from 'expo-keep-awake';
+
 
 // Widget Module for updating Android widgets
 const WidgetModule = NativeModules.WidgetModule;
@@ -179,6 +181,7 @@ const OrientationButton = ({ isLandscape, onToggle }) => {
 
 // ===== MAIN APP COMPONENT =====
 export default function App() {
+  useKeepAwake();
   // Use useWindowDimensions for responsive layout (auto-updates on resize/rotation)
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const isLandscape = screenWidth > screenHeight;
@@ -507,7 +510,7 @@ const styles = StyleSheet.create({
   // ===== ORIENTATION BUTTON =====
   orientationButton: {
     position: 'absolute',
-    top: 15,
+    top: 30,
     right: 15,
     zIndex: 100,
     width: 44,
@@ -533,8 +536,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: '2%',
     paddingTop: 10,
-    borderWidth: 5,
-    borderColor: 'rgba(255, 0, 0, 0.98)'
+    // borderWidth: 5,
+    // borderColor: 'rgba(255, 0, 0, 0.98)'
   },
   landscapeGauge: {
     flex: 1,
