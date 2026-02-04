@@ -40,6 +40,7 @@ const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, 
   const center = size / 2;
   const radius = size * 0.36;
   const circumference = 2 * Math.PI * radius;
+  
 
   const normalizedValue = Math.max(-max, Math.min(max, value));
   const progress = (normalizedValue + max) / (2 * max);
@@ -68,7 +69,7 @@ const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, 
             position: 'absolute',
             width: size,
             height: size,
-            opacity: 0.8,
+            opacity: 0.9,
           }}
           resizeMode="contain"
         />
@@ -100,13 +101,13 @@ const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, 
             return (
               <React.Fragment key={deg}>
                 <Line
-                  x1={x1}
-                  y1={y1}
-                  x2={x2}
-                  y2={y2}
-                  stroke={color}
-                  strokeWidth={isMajor ? 4 : 2.5}
-                  opacity={0.8}
+                  // x1={x1}
+                  // y1={y1}
+                  // x2={x2}
+                  // y2={y2}
+                  // stroke={color}
+                  // strokeWidth={isMajor ? 4 : 2.5}
+                  // opacity={0.8}
                 />
                 {isMajor && (
                   <SvgText
@@ -128,12 +129,12 @@ const Gauge = ({ value, max = 50, color = '#00ff88', title = 'PITCH', carImage, 
 
           <SvgImage
             href={carImage}
-            x={center - size * 0.35}
-            y={center - size * 0.35}
-            width={size * 0.7}
-            height={size * 0.7}
+            x={center - size * 0.44}
+            y={center - size * 0.44}
+            width={size * 0.9}
+            height={size * 0.9}
             preserveAspectRatio="xMidYMid meet"
-            opacity={0.95}
+            opacity={1}
             transform={`rotate(${carTilt} ${center} ${center})`}
           />
         </Svg>
@@ -316,7 +317,7 @@ export default function App() {
             <View style={styles.landscapeGauge}>
               <Gauge
                 value={pitch_land}
-                color="#7cfc00"
+                color='rgb(124, 252, 0)'
                 title="PITCH"
                 carImage={CAR_SIDE_IMAGE}
                 isLandscape={isLandscape}
@@ -336,7 +337,7 @@ export default function App() {
                   <View style={styles.iconWrapper}>
                     <Image source={SPEED_BG} style={styles.iconBackground} resizeMode="contain" />
                     <View style={styles.iconCircle}>
-                      <Text style={styles.speedIcon}>🏎️</Text>
+                      <Text style={styles.speedIcon}></Text>
                     </View>
                   </View>
                   <Text style={[styles.infoNumberValue, { fontSize: infoValueFontSize }]}>{speed} km/h</Text>
@@ -349,7 +350,7 @@ export default function App() {
                   <View style={styles.iconWrapper}>
                     <Image source={TEMP_BG} style={styles.iconBackground} resizeMode="contain" />
                     <View style={styles.iconCircle}>
-                      <Text style={styles.tempIcon}>🌡️</Text>
+                      <Text style={styles.tempIcon}></Text>
                     </View>
                   </View>
                   <Text style={[styles.infoNumberValue, { fontSize: infoValueFontSize }]}>
@@ -364,7 +365,7 @@ export default function App() {
             <View style={styles.landscapeGauge}>
               <Gauge
                 value={roll_land}
-                color="#ff8c00"
+                color='rgb(255, 140, 0)'
                 title="ROLL"
                 carImage={CAR_REAR_IMAGE}
                 isLandscape={isLandscape}
@@ -390,7 +391,7 @@ export default function App() {
               <View style={styles.portraitGaugeItem}>
                 <Gauge
                   value={pitch}
-                  color="#7cfc00"
+                  color='rgb(124, 252, 0)'
                   title="PITCH"
                   carImage={CAR_SIDE_IMAGE}
                   isLandscape={isLandscape}
@@ -403,7 +404,7 @@ export default function App() {
               <View style={styles.portraitGaugeItem}>
                 <Gauge
                   value={roll}
-                  color="#ff8c00"
+                  color='rgb(255, 140, 0)'
                   title="ROLL"
                   carImage={CAR_REAR_IMAGE}
                   isLandscape={isLandscape}
@@ -443,7 +444,7 @@ export default function App() {
 const styles = StyleSheet.create({
   background: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: 'rgb(0, 0, 0)',
   },
   container: {
     flex: 1,
@@ -461,7 +462,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     borderWidth: 2,
-    borderColor: '#00e5ff',
+    borderColor: 'rgb(0, 229, 255)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -477,11 +478,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: '2%',
     paddingTop: 10,
+    // borderWidth: 5,
+    // borderColor: 'rgba(255, 0, 0, 0.98)'
   },
   landscapeGauge: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
+    // borderWidth: 5,
+    // borderColor: 'rgba(255, 0, 0, 0.98)'
   },
   landscapeCenterPanel: {
     flex: 1.2,
@@ -495,50 +500,71 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingTop: 20,
+    borderWidth: 5,
+    marginBottom: 50
+    // borderWidth: 5,
+    // borderColor: 'rgba(255, 0, 0, 0.98)'
   },
   portraitAltitudeSection: {
     alignItems: 'center',
     marginTop: 25,
-    marginBottom: 10,
+    marginBottom: 10
+    // borderWidth: 5,
+    // borderColor: 'rgba(255, 0, 0, 0.98)'
   },
   portraitGaugesWrapper: {
     flex: 1,
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-evenly',
+    justifyContent: 'space-evenly'
+    // borderWidth: 5,
+    // borderColor: 'rgb(85, 73, 139)'
   },
   portraitGaugeItem: {
+    flex: 1,
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 100
+    // borderWidth: 5,
+    // borderColor: 'rgba(255, 0, 0, 0.98)'
   },
   portraitBottomInfoRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     width: '90%',
-    backgroundColor: 'rgba(0, 0, 0, 0.27)',
+    // backgroundColor: 'rgba(0, 0, 0, 0.27)',
     borderRadius: 12,
     paddingVertical: 15,
     paddingHorizontal: 20,
-    marginBottom: 70,
+    marginBottom: 70
+    // borderWidth: 5,
+    // borderColor: 'rgba(30, 255, 0, 0.98)'
   },
   portraitInfoItem: {
     alignItems: 'center',
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'center'
+    // borderWidth: 5,
+    // borderColor: 'rgba(0, 64, 255, 0.98)'
   },
   portraitInfoValue: {
     fontWeight: 'bold',
-    color: '#fff',
+    color: 'rgb(153, 153, 153)',
     textShadowColor: 'rgba(0,255,255,0.4)',
     textShadowRadius: 6,
-    marginBottom: 2,
+    marginBottom: 2
+    // borderWidth: 5,
+    // borderColor: 'rgba(255, 0, 238, 0.98)'
   },
   portraitBottomLabel: {
     fontSize: 12,
     color: '#999',
-    letterSpacing: 0.3,
+    letterSpacing: 0.3
+    // borderWidth: 5,
+    // borderColor: 'rgba(242, 245, 68, 0.98)'
   },
 
   // ===== SHARED STYLES =====
@@ -552,8 +578,8 @@ const styles = StyleSheet.create({
   },
   altitude: {
     fontWeight: 'bold',
-    color: '#00e5ff',
-    textShadowColor: '#00e5ff',
+    color: 'rgb(0, 229, 255)',
+    textShadowColor: 'rgb(0, 229, 255)',
     textShadowRadius: 15,
     textShadowOffset: { width: 0, height: 0 },
     letterSpacing: -1,
@@ -604,6 +630,8 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,255,255,0.4)',
     textShadowRadius: 6,
     marginBottom: 3,
+    // borderWidth: 5,
+    // borderColor: 'rgba(78, 215, 151, 0.98)'
   },
   infoLabel: {
     fontSize: 12,
@@ -618,17 +646,18 @@ const styles = StyleSheet.create({
   },
   calibrateButton: {
     position: 'absolute',
-    bottom: 15,
+    bottom: 60,
     alignSelf: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.24)',
     paddingHorizontal: 25,
     paddingVertical: 12,
     borderRadius: 25,
     borderWidth: 2,
-    borderColor: '#00e5ff',
+    borderColor: 'rgb(101, 101, 101)'
+    
   },
   calibrateText: {
-    color: '#00e5ff',
+    color: 'rgb(101, 101, 101)',
     fontSize: 14,
     fontWeight: 'bold',
     letterSpacing: 1,
