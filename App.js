@@ -11,14 +11,20 @@ import {
   AppState,
   Platform,
   NativeModules,
+  Modal,
+  FlatList,
+  ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
 import { Accelerometer } from 'expo-sensors';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { useKeepAwake } from 'expo-keep-awake';
+import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Line, Text as SvgText, Image as SvgImage, Defs, RadialGradient, Stop } from 'react-native-svg';
-
+import BluetoothSensorService from './services/BluetoothSensorService';
 
 // Widget Module for updating Android widgets
 const WidgetModule = NativeModules.WidgetModule;
@@ -27,9 +33,13 @@ const WidgetModule = NativeModules.WidgetModule;
 const BACKGROUND_PORTRAIT = require('./assets/images/background_portrait.jpg');
 const BACKGROUND_LANDSCAPE = require('./assets/images/background_landscape.jpeg');
 
-// Car images
-const CAR_REAR_IMAGE = require('./assets/images/car-rear.png');
-const CAR_SIDE_IMAGE = require('./assets/images/car-side.png');
+// Default Car images
+const DEFAULT_CAR_REAR_IMAGE = require('./assets/images/car-rear.png');
+const DEFAULT_CAR_SIDE_IMAGE = require('./assets/images/car-side.png');
+
+// Storage keys
+const STORAGE_KEY_CAR_REAR = '@car_rear_image';
+const STORAGE_KEY_CAR_SIDE = '@car_side_image';
 
 // Background images for gauges and icons
 const ROUND_BG = require('./assets/images/round.png');
@@ -196,9 +206,28 @@ export default function App() {
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [isOrientationLocked, setIsOrientationLocked] = useState(false);
   const [appState, setAppState] = useState(AppState.currentState);
+  const [sensorAvailable, setSensorAvailable] = useState(true);
+
+  // Bluetooth states
+  const [bluetoothMode, setBluetoothMode] = useState(null); // 'sender', 'receiver', or null
+  const [bluetoothConnected, setBluetoothConnected] = useState(false);
+  const [bluetoothDeviceName, setBluetoothDeviceName] = useState(null);
+  const [showBluetoothModal, setShowBluetoothModal] = useState(false);
+  const [availableDevices, setAvailableDevices] = useState([]);
+  const [isScanning, setIsScanning] = useState(false);
+
+  // Menu and custom car images states
+  const [showMenu, setShowMenu] = useState(false);
+  const [customCarRearImage, setCustomCarRearImage] = useState(null);
+  const [customCarSideImage, setCustomCarSideImage] = useState(null);
+
+  // Current car images (custom or default)
+  const carRearImage = customCarRearImage ? { uri: customCarRearImage } : DEFAULT_CAR_REAR_IMAGE;
+  const carSideImage = customCarSideImage ? { uri: customCarSideImage } : DEFAULT_CAR_SIDE_IMAGE;
 
   // Ref for widget update throttling
   const lastWidgetUpdate = useRef(0);
+  const bluetoothSendInterval = useRef(null);
 
   // Calculated values
   const roll = Math.round((isLandscape ? rawRoll : rawPitch) - (isLandscape ? rollOffset : pitchOffset));
@@ -303,15 +332,264 @@ export default function App() {
 
   // ===== ACCELEROMETER =====
   useEffect(() => {
-    Accelerometer.setUpdateInterval(200);
-    const subscription = Accelerometer.addListener(({ x, y, z }) => {
-      const newPitch = Math.atan2(-x, Math.sqrt(y * y + z * z)) * (180 / Math.PI);
-      const newRoll = Math.atan2(y, z) * (180 / Math.PI);
-      setRawPitch(newPitch);
-      setRawRoll(newRoll);
-    });
-    return () => subscription.remove();
+    let subscription = null;
+
+    const setupAccelerometer = async () => {
+      try {
+        // Check if accelerometer is available
+        const isAvailable = await Accelerometer.isAvailableAsync();
+        if (!isAvailable) {
+          setSensorAvailable(false);
+          // სენსორი არ არის - შევთავაზოთ Bluetooth Receiver რეჟიმი
+          Alert.alert(
+            'სენსორი მიუწვდომელია',
+            'ამ მოწყობილობას არ აქვს accelerometer სენსორი.\n\nგსურთ Bluetooth-ით დაუკავშირდეთ ტელეფონს სენსორის მონაცემების მისაღებად?',
+            [
+              { text: 'არა', style: 'cancel' },
+              {
+                text: 'დიახ, დაკავშირება',
+                onPress: () => startBluetoothReceiver()
+              }
+            ]
+          );
+          return;
+        }
+
+        setSensorAvailable(true);
+        Accelerometer.setUpdateInterval(200);
+        subscription = Accelerometer.addListener(({ x, y, z }) => {
+          const newPitch = Math.atan2(-x, Math.sqrt(y * y + z * z)) * (180 / Math.PI);
+          const newRoll = Math.atan2(y, z) * (180 / Math.PI);
+          setRawPitch(newPitch);
+          setRawRoll(newRoll);
+        });
+      } catch (error) {
+        console.log('Accelerometer error:', error);
+        setSensorAvailable(false);
+        Alert.alert(
+          'სენსორის შეცდომა',
+          'Accelerometer სენსორთან დაკავშირება ვერ მოხერხდა.\n\nგსურთ Bluetooth-ით დაუკავშირდეთ ტელეფონს?',
+          [
+            { text: 'არა', style: 'cancel' },
+            {
+              text: 'დიახ, დაკავშირება',
+              onPress: () => startBluetoothReceiver()
+            }
+          ]
+        );
+      }
+    };
+
+    setupAccelerometer();
+
+    return () => {
+      if (subscription) {
+        subscription.remove();
+      }
+    };
   }, []);
+
+  // ===== BLUETOOTH FUNCTIONS =====
+
+  // Bluetooth Receiver რეჟიმის დაწყება (მონიტორისთვის)
+  const startBluetoothReceiver = async () => {
+    try {
+      setBluetoothMode('receiver');
+      setShowBluetoothModal(true);
+      setIsScanning(true);
+      setAvailableDevices([]);
+
+      // Setup callbacks
+      BluetoothSensorService.setOnDataReceived((data) => {
+        if (data) {
+          setRawPitch(data.pitch || 0);
+          setRawRoll(data.roll || 0);
+          if (data.altitude) setAltitude(data.altitude);
+          if (data.speed) setSpeed(data.speed);
+        }
+      });
+
+      BluetoothSensorService.setOnConnectionChange((connected, deviceName) => {
+        setBluetoothConnected(connected);
+        setBluetoothDeviceName(deviceName);
+        if (connected) {
+          setShowBluetoothModal(false);
+          Alert.alert('დაკავშირებულია', `${deviceName}-თან კავშირი დამყარდა`);
+        }
+      });
+
+      // Start scanning
+      await BluetoothSensorService.startScanning((device) => {
+        setAvailableDevices((prev) => {
+          if (prev.find((d) => d.id === device.id)) return prev;
+          return [...prev, device];
+        });
+      });
+
+      // Stop scanning indicator after 30 seconds
+      setTimeout(() => setIsScanning(false), 30000);
+    } catch (error) {
+      console.log('Bluetooth receiver error:', error);
+      Alert.alert('შეცდომა', 'Bluetooth-ის გაშვება ვერ მოხერხდა: ' + error.message);
+      setShowBluetoothModal(false);
+    }
+  };
+
+  // Bluetooth Sender რეჟიმის დაწყება (ტელეფონისთვის)
+  const startBluetoothSender = async () => {
+    try {
+      setBluetoothMode('sender');
+
+      // შევამოწმოთ BleManager ხელმისაწვდომია თუ არა
+      if (!BluetoothSensorService || !BluetoothSensorService.manager) {
+        // თუ BLE არ არის ხელმისაწვდომი, უბრალოდ აჩვენე შეტყობინება
+        Alert.alert(
+          'Bluetooth Sender',
+          'Bluetooth Sender რეჟიმი მზადაა.\n\n⚠️ შენიშვნა: BLE Peripheral რეჟიმი მოითხოვს დამატებით კონფიგურაციას.\n\nამჟამად მხარდაჭერილია მხოლოდ Receiver რეჟიმი მოწყობილობებზე სენსორის გარეშე.'
+        );
+        setBluetoothMode(null);
+        return;
+      }
+
+      await BluetoothSensorService.initialize();
+
+      Alert.alert(
+        'Sender რეჟიმი',
+        'აპლიკაცია მზადაა სენსორის მონაცემების გასაგზავნად.\n\nმანქანის მონიტორზე გახსენით აპლიკაცია და დაუკავშირდით ამ მოწყობილობას.'
+      );
+    } catch (error) {
+      console.log('Bluetooth sender error:', error);
+      setBluetoothMode(null);
+
+      // უფრო დეტალური შეცდომის შეტყობინება
+      let errorMessage = 'Bluetooth-ის გაშვება ვერ მოხერხდა.';
+      if (error.message) {
+        if (error.message.includes('PoweredOff')) {
+          errorMessage = 'Bluetooth გამორთულია. გთხოვთ ჩართოთ Bluetooth.';
+        } else if (error.message.includes('permission')) {
+          errorMessage = 'Bluetooth-ის ნებართვა არ არის მიცემული.';
+        } else {
+          errorMessage += '\n\n' + error.message;
+        }
+      }
+      Alert.alert('შეცდომა', errorMessage);
+    }
+  };
+
+  // მოწყობილობასთან დაკავშირება
+  const connectToDevice = async (device) => {
+    try {
+      setIsScanning(false);
+      BluetoothSensorService.stopScanning();
+      await BluetoothSensorService.connectToDevice(device);
+    } catch (error) {
+      Alert.alert('შეცდომა', 'დაკავშირება ვერ მოხერხდა: ' + error.message);
+    }
+  };
+
+  // Bluetooth-ის გათიშვა
+  const disconnectBluetooth = async () => {
+    if (bluetoothSendInterval.current) {
+      clearInterval(bluetoothSendInterval.current);
+      bluetoothSendInterval.current = null;
+    }
+    await BluetoothSensorService.disconnect();
+    setBluetoothConnected(false);
+    setBluetoothMode(null);
+    setBluetoothDeviceName(null);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (bluetoothSendInterval.current) {
+        clearInterval(bluetoothSendInterval.current);
+      }
+      BluetoothSensorService.destroy();
+    };
+  }, []);
+
+  // ===== LOAD SAVED CAR IMAGES =====
+  useEffect(() => {
+    const loadSavedImages = async () => {
+      try {
+        const savedRear = await AsyncStorage.getItem(STORAGE_KEY_CAR_REAR);
+        const savedSide = await AsyncStorage.getItem(STORAGE_KEY_CAR_SIDE);
+
+        if (savedRear) setCustomCarRearImage(savedRear);
+        if (savedSide) setCustomCarSideImage(savedSide);
+      } catch (error) {
+        console.log('Error loading saved images:', error);
+      }
+    };
+
+    loadSavedImages();
+  }, []);
+
+  // ===== CAR IMAGE FUNCTIONS =====
+
+  // Pick image from gallery
+  const pickImage = async (type) => {
+    try {
+      // Request permission
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permissionResult.granted) {
+        Alert.alert('ნებართვა საჭიროა', 'გალერეაზე წვდომის ნებართვა საჭიროა სურათის ასარჩევად.');
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: type === 'rear' ? [4, 3] : [16, 9],
+        quality: 1,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const imageUri = result.assets[0].uri;
+
+        if (type === 'rear') {
+          setCustomCarRearImage(imageUri);
+          await AsyncStorage.setItem(STORAGE_KEY_CAR_REAR, imageUri);
+        } else {
+          setCustomCarSideImage(imageUri);
+          await AsyncStorage.setItem(STORAGE_KEY_CAR_SIDE, imageUri);
+        }
+
+        Alert.alert('წარმატება', 'სურათი წარმატებით შეიცვალა!');
+      }
+    } catch (error) {
+      console.log('Image picker error:', error);
+      Alert.alert('შეცდომა', 'სურათის არჩევა ვერ მოხერხდა.');
+    }
+  };
+
+  // Reset car images to default
+  const resetCarImages = async () => {
+    Alert.alert(
+      'დაბრუნება',
+      'გსურთ მანქანის სურათების default-ზე დაბრუნება?',
+      [
+        { text: 'არა', style: 'cancel' },
+        {
+          text: 'დიახ',
+          onPress: async () => {
+            try {
+              await AsyncStorage.removeItem(STORAGE_KEY_CAR_REAR);
+              await AsyncStorage.removeItem(STORAGE_KEY_CAR_SIDE);
+              setCustomCarRearImage(null);
+              setCustomCarSideImage(null);
+              Alert.alert('წარმატება', 'სურათები დაბრუნდა default-ზე.');
+            } catch (error) {
+              console.log('Reset error:', error);
+            }
+          }
+        }
+      ]
+    );
+  };
 
   // ===== LOCATION UPDATES =====
   useEffect(() => {
@@ -361,11 +639,195 @@ export default function App() {
       <View style={styles.container}>
         <StatusBar style="light" hidden />
 
+        {/* Menu Button - ზევით მარცხნივ */}
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={() => setShowMenu(true)}
+        >
+          <Text style={styles.menuButtonText}>☰</Text>
+        </TouchableOpacity>
+
+        {/* Bluetooth Connection Indicator */}
+        {bluetoothConnected && (
+          <View style={styles.bluetoothIndicator}>
+            <Text style={styles.bluetoothIndicatorText}>
+              📶 {bluetoothDeviceName}
+            </Text>
+          </View>
+        )}
+
+        {/* Bluetooth Button - Rotation-ის ქვემოთ მარჯვნივ */}
+        {sensorAvailable && !bluetoothConnected && (
+          <TouchableOpacity
+            style={styles.bluetoothButton}
+            onPress={startBluetoothSender}
+          >
+            <Text style={styles.bluetoothButtonText}>📡</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Bluetooth Disconnect Button */}
+        {bluetoothConnected && (
+          <TouchableOpacity
+            style={styles.bluetoothDisconnectButton}
+            onPress={disconnectBluetooth}
+          >
+            <Text style={styles.bluetoothButtonText}>✕</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Menu Modal */}
+        <Modal
+          visible={showMenu}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowMenu(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.menuModalContent}>
+              <Text style={styles.modalTitle}>მენიუ</Text>
+
+              <ScrollView style={styles.menuScrollView}>
+                {/* Car Photos Section */}
+                <View style={styles.menuSection}>
+                  <Text style={styles.menuSectionTitle}>🚗 Car Photos</Text>
+                  <Text style={styles.menuSectionSubtitle}>
+                    ატვირთეთ საკუთარი მანქანის სურათები
+                  </Text>
+
+                  {/* Side Image (Pitch) */}
+                  <View style={styles.carImageOption}>
+                    <View style={styles.carImagePreviewContainer}>
+                      <Image
+                        source={carSideImage}
+                        style={styles.carImagePreview}
+                        resizeMode="contain"
+                      />
+                    </View>
+                    <View style={styles.carImageInfo}>
+                      <Text style={styles.carImageLabel}>გვერდითი ხედი (Pitch)</Text>
+                      <TouchableOpacity
+                        style={styles.uploadButton}
+                        onPress={() => pickImage('side')}
+                      >
+                        <Text style={styles.uploadButtonText}>📷 ატვირთვა</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Rear Image (Roll) */}
+                  <View style={styles.carImageOption}>
+                    <View style={styles.carImagePreviewContainer}>
+                      <Image
+                        source={carRearImage}
+                        style={styles.carImagePreview}
+                        resizeMode="contain"
+                      />
+                    </View>
+                    <View style={styles.carImageInfo}>
+                      <Text style={styles.carImageLabel}>უკანა ხედი (Roll)</Text>
+                      <TouchableOpacity
+                        style={styles.uploadButton}
+                        onPress={() => pickImage('rear')}
+                      >
+                        <Text style={styles.uploadButtonText}>📷 ატვირთვა</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Reset Button */}
+                  <TouchableOpacity
+                    style={styles.resetButton}
+                    onPress={resetCarImages}
+                  >
+                    <Text style={styles.resetButtonText}>🔄 Default სურათების დაბრუნება</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+
+              {/* Close Button */}
+              <TouchableOpacity
+                style={styles.closeMenuButton}
+                onPress={() => setShowMenu(false)}
+              >
+                <Text style={styles.closeMenuButtonText}>დახურვა</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
         {/* Orientation Toggle Button */}
         <OrientationButton
           isLandscape={isLandscape}
           onToggle={toggleOrientation}
         />
+
+        {/* Bluetooth Device Selection Modal */}
+        <Modal
+          visible={showBluetoothModal}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowBluetoothModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Bluetooth მოწყობილობები</Text>
+              <Text style={styles.modalSubtitle}>
+                აირჩიეთ ტელეფონი სენსორის მონაცემების მისაღებად
+              </Text>
+
+              {isScanning && (
+                <View style={styles.scanningContainer}>
+                  <ActivityIndicator size="large" color="#00e5ff" />
+                  <Text style={styles.scanningText}>სკანირება...</Text>
+                </View>
+              )}
+
+              <FlatList
+                data={availableDevices}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.deviceItem}
+                    onPress={() => connectToDevice(item)}
+                  >
+                    <Text style={styles.deviceName}>{item.name || 'უცნობი მოწყობილობა'}</Text>
+                    <Text style={styles.deviceId}>{item.id}</Text>
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  !isScanning && (
+                    <Text style={styles.noDevicesText}>
+                      მოწყობილობები ვერ მოიძებნა
+                    </Text>
+                  )
+                }
+              />
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalButton}
+                  onPress={() => {
+                    BluetoothSensorService.stopScanning();
+                    setShowBluetoothModal(false);
+                    setIsScanning(false);
+                  }}
+                >
+                  <Text style={styles.modalButtonText}>დახურვა</Text>
+                </TouchableOpacity>
+
+                {!isScanning && (
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.modalButtonPrimary]}
+                    onPress={startBluetoothReceiver}
+                  >
+                    <Text style={styles.modalButtonTextPrimary}>ხელახლა სკანირება</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {isLandscape ? (
           /* ===== LANDSCAPE LAYOUT ===== */
@@ -376,7 +838,7 @@ export default function App() {
                 value={pitch_land}
                 color='rgb(124, 252, 0)'
                 title="PITCH"
-                carImage={CAR_SIDE_IMAGE}
+                carImage={carSideImage}
                 isLandscape={isLandscape}
                 screenWidth={screenWidth}
                 screenHeight={screenHeight}
@@ -430,7 +892,7 @@ export default function App() {
                 value={roll_land}
                 color='rgb(255, 140, 0)'
                 title="ROLL"
-                carImage={CAR_REAR_IMAGE}
+                carImage={carRearImage}
                 isLandscape={isLandscape}
                 screenWidth={screenWidth}
                 screenHeight={screenHeight}
@@ -457,7 +919,7 @@ export default function App() {
                   value={pitch}
                   color='rgb(124, 252, 0)'
                   title="PITCH"
-                  carImage={CAR_SIDE_IMAGE}
+                  carImage={carSideImage}
                   isLandscape={isLandscape}
                   screenWidth={screenWidth}
                   screenHeight={screenHeight}
@@ -470,7 +932,7 @@ export default function App() {
                   value={roll}
                   color='rgb(255, 140, 0)'
                   title="ROLL"
-                  carImage={CAR_REAR_IMAGE}
+                  carImage={carRearImage}
                   isLandscape={isLandscape}
                   screenWidth={screenWidth}
                   screenHeight={screenHeight}
@@ -535,6 +997,7 @@ const styles = StyleSheet.create({
   },
   orientationIcon: {
     fontSize: 20,
+    color: 'rgb(255, 255, 255)',
   },
 
   // ===== LANDSCAPE LAYOUT =====
@@ -571,30 +1034,32 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingTop: 20,
-    paddingBottom: 10,
+    justifyContent: 'space-between',
+    paddingTop: 15,
+    paddingBottom: 20,
     // borderWidth: 5,
-    // borderColor: 'rgba(74, 139, 100, 0.98)'
+    // borderColor: 'rgba(255, 0, 157, 0.98)'
   },
   portraitAltitudeSection: {
     alignItems: 'center',
-    marginTop: 25,
-    marginBottom: 10
+    marginBottom: 0,
+    marginTop: 27,
     // borderWidth: 5,
-    // borderColor: 'rgba(255, 0, 0, 0.98)'
+    // borderColor: 'rgba(0, 64, 255, 0.98)'
   },
   portraitGaugesWrapper: {
-    flex: 1,
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-evenly',
+    // borderWidth: 5,
+    // borderColor: 'rgba(0, 64, 255, 0.98)'
   },
   portraitGaugeItem: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    // borderWidth: 5,
+    // borderColor: 'rgba(0, 64, 255, 0.98)'
   },
   speedAndTemperatureRow_Portrait: {
     flexDirection: 'row',
@@ -603,10 +1068,9 @@ const styles = StyleSheet.create({
     width: '90%',
     backgroundColor: 'rgba(0, 0, 0, 0.42)',
     borderRadius: 12,
-    paddingVertical: 15,
+    paddingVertical: 12,
     paddingHorizontal: 20,
-    marginTop: 'auto',
-    marginBottom: 15,
+    marginTop: 10,
   },
   portraitInfoItem: {
     alignItems: 'center',
@@ -648,6 +1112,8 @@ const styles = StyleSheet.create({
     textShadowRadius: 15,
     textShadowOffset: { width: 0, height: 0 },
     letterSpacing: -1,
+    // borderWidth: 5,
+    // borderColor: 'rgba(0, 64, 255, 0.98)'
   },
   altitudeLabel: {
     fontSize: 12,
@@ -727,14 +1193,11 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.24)',
     paddingHorizontal: 25,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 25,
     borderWidth: 2,
     borderColor: 'rgb(101, 101, 101)',
-    marginTop: 'auto',
-    marginBottom: 30,    
-    // borderWidth: 5,
-    // borderColor: 'rgba(182, 222, 50, 0.98)'
+    marginTop: 10,
   },
   calibrateButtonLandscape: {
     alignSelf: 'center',
@@ -754,5 +1217,266 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     letterSpacing: 1,
+  },
+
+  // ===== BLUETOOTH STYLES =====
+  bluetoothIndicator: {
+    position: 'absolute',
+    top: 60,
+    right: 15,
+    backgroundColor: 'rgba(0, 229, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: 'rgb(0, 229, 255)',
+    zIndex: 100,    
+    // borderWidth: 5,
+    // borderColor: 'rgba(182, 222, 50, 0.98)'
+  },
+  bluetoothIndicatorText: {
+    color: 'rgb(0, 229, 255)',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  bluetoothButton: {
+    position: 'absolute',
+    top: 80,
+    right: 15,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    // backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderWidth: 2,
+    borderColor: 'rgb(101, 101, 101)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,    
+    // borderWidth: 5,
+    // borderColor: 'rgba(182, 222, 50, 0.98)'
+  },
+  bluetoothDisconnectButton: {
+    position: 'absolute',
+    top: 115,
+    right: 15,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 100, 100, 0.3)',
+    borderWidth: 2,
+    borderColor: 'rgb(255, 100, 100)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,    
+    // borderWidth: 5,
+    // borderColor: 'rgba(182, 222, 50, 0.98)'
+  },
+  bluetoothButtonText: {
+    fontSize: 18,
+  },
+
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: 'rgb(30, 30, 30)',
+    borderRadius: 20,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '80%',
+    borderWidth: 2,
+    borderColor: 'rgb(0, 229, 255)',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'rgb(0, 229, 255)',
+    textAlign: 'center',
+    marginBottom: 5,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: 'rgb(153, 153, 153)',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  scanningContainer: {
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  scanningText: {
+    color: 'rgb(0, 229, 255)',
+    marginTop: 10,
+    fontSize: 14,
+  },
+  deviceItem: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  deviceName: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  deviceId: {
+    color: 'rgb(153, 153, 153)',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  noDevicesText: {
+    color: 'rgb(153, 153, 153)',
+    textAlign: 'center',
+    marginVertical: 30,
+    fontSize: 14,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginHorizontal: 5,
+  },
+  modalButtonPrimary: {
+    backgroundColor: 'rgb(0, 229, 255)',
+  },
+  modalButtonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  modalButtonTextPrimary: {
+    color: 'black',
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+
+  // ===== MENU STYLES =====
+  menuButton: {
+    position: 'absolute',
+    top: 30,
+    left: 15,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderWidth: 2,
+    borderColor: 'rgb(101, 101, 101)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+  },
+  menuButtonText: {
+    fontSize: 22,
+    color: 'rgb(255, 255, 255)',
+  },
+  menuModalContent: {
+    backgroundColor: 'rgb(30, 30, 30)',
+    borderRadius: 20,
+    padding: 20,
+    width: '90%',
+    maxWidth: 450,
+    maxHeight: '85%',
+    borderWidth: 2,
+    borderColor: 'rgb(0, 229, 255)',
+  },
+  menuScrollView: {
+    maxHeight: '80%',
+  },
+  menuSection: {
+    marginBottom: 20,
+  },
+  menuSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'rgb(0, 229, 255)',
+    marginBottom: 5,
+  },
+  menuSectionSubtitle: {
+    fontSize: 12,
+    color: 'rgb(153, 153, 153)',
+    marginBottom: 15,
+  },
+  carImageOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  carImagePreviewContainer: {
+    width: 80,
+    height: 60,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 8,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  carImagePreview: {
+    width: '100%',
+    height: '100%',
+  },
+  carImageInfo: {
+    flex: 1,
+    marginLeft: 15,
+  },
+  carImageLabel: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  uploadButton: {
+    backgroundColor: 'rgb(0, 229, 255)',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  uploadButtonText: {
+    color: 'black',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  resetButton: {
+    backgroundColor: 'rgba(255, 100, 100, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgb(255, 100, 100)',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  resetButtonText: {
+    color: 'rgb(255, 100, 100)',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  closeMenuButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 15,
+  },
+  closeMenuButtonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
