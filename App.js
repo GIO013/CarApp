@@ -16,8 +16,8 @@ import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
 import { Accelerometer } from 'expo-sensors';
 import * as ScreenOrientation from 'expo-screen-orientation';
-import Svg, { Circle, Line, Text as SvgText, Image as SvgImage, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { useKeepAwake } from 'expo-keep-awake';
+import Svg, { Circle, Line, Text as SvgText, Image as SvgImage, Defs, RadialGradient, Stop } from 'react-native-svg';
 
 
 // Widget Module for updating Android widgets
@@ -207,45 +207,27 @@ export default function App() {
   const pitch_land = -Math.round((isLandscape ? rawPitch : rawRoll) - (isLandscape ? pitchOffset : rollOffset));
 
   // ===== WIDGET UPDATE FUNCTION =====
-  const updateWidget = useCallback(() => {
+  const updateWidget = useCallback(async () => {
     if (Platform.OS !== 'android' || !WidgetModule) return;
 
     const now = Date.now();
-    const safeTemp = temperature !== null ? temperature : 0;
-    const safePitch = Math.round(pitch) || 0;
-    const safeRoll = Math.round(roll) || 0;
 
     // Throttle updates to every 2 seconds to avoid excessive calls
-    // if (now - lastWidgetUpdate.current < 2000) return;
-    // lastWidgetUpdate.current = now;
+    if (now - lastWidgetUpdate.current < 2000) return;
+    lastWidgetUpdate.current = now;
 
-  //   try {
-  //     WidgetModule.updateWidgetData(
-  //       pitch,
-  //       roll,
-  //       altitude,
-  //       speed,
-  //       temperature || 0
-  //     );
-  //   } catch (error) {
-  //     console.log('Widget update error:', error);
-  //   }
-  // }, [pitch, roll, altitude, speed, temperature]);
-
-  try {
-    // დარწმუნდი, რომ პარამეტრების თანმიმდევრობა ზუსტად ემთხვევა 
-    // Java/Kotlin-ის მეთოდის ხელმოწერას (Signature)
-    WidgetModule.updateWidgetData(
-      safePitch,
-      safeRoll,
-      altitude || 0,
-      speed || 0,
-      safeTemp
-    );
-  } catch (error) {
-    console.error('Widget update error:', error);
-  }
-}, [pitch, roll, altitude, speed, temperature]);
+    try {
+      await WidgetModule.updateWidgetData(
+        pitch,
+        roll,
+        altitude,
+        speed,
+        temperature || 0
+      );
+    } catch (error) {
+      console.log('Widget update error:', error);
+    }
+  }, [pitch, roll, altitude, speed, temperature]);
 
   // ===== UPDATE WIDGET WHEN DATA CHANGES =====
   useEffect(() => {
@@ -406,6 +388,7 @@ export default function App() {
               <Text style={[styles.altitude, { fontSize: altitudeFontSize }]}>
                 {altitude.toLocaleString()} m
               </Text>
+              <Text style={styles.altitudeLabel}>Altitude</Text>
 
               <View style={styles.speedAndTemperatureRow_Land}>
                 <View style={styles.infoItemContainer}>
@@ -434,6 +417,11 @@ export default function App() {
                   <Text style={styles.infoLabel}>Outside</Text>
                 </View>
               </View>
+
+              {/* Calibrate Button - Landscape (in center panel) */}
+              <TouchableOpacity style={styles.calibrateButtonLandscape} onPress={calibrate}>
+                <Text style={styles.calibrateText}>⚙ CALIBRATE / RESET ZERO</Text>
+              </TouchableOpacity>
             </View>
 
             {/* Right Gauge - ROLL */}
@@ -458,6 +446,7 @@ export default function App() {
               <Text style={[styles.altitude, { fontSize: altitudeFontSize }]}>
                 {altitude.toLocaleString()} m
               </Text>
+              <Text style={styles.altitudeLabel}>Altitude</Text>
             </View>
 
             {/* Gauges Container - Side by Side */}
@@ -503,13 +492,14 @@ export default function App() {
                 <Text style={styles.portraitBottomLabel}>Outside</Text>
               </View>
             </View>
+
+            {/* Calibrate Button - Portrait */}
+            <TouchableOpacity style={styles.calibrateButtonPortrait} onPress={calibrate}>
+              <Text style={styles.calibrateText}>⚙ CALIBRATE / RESET ZERO</Text>
+            </TouchableOpacity>
           </View>
         )}
 
-        {/* Calibrate Button */}
-        <TouchableOpacity style={styles.calibrateButton} onPress={calibrate}>
-          <Text style={styles.calibrateText}>⚙ CALIBRATE / RESET ZERO</Text>
-        </TouchableOpacity>
       </View>
     </ImageBackground>
   );
@@ -553,7 +543,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: '2%',
+    paddingHorizontal: '5%',
     paddingTop: 10,
     // borderWidth: 5,
     // borderColor: 'rgba(255, 0, 0, 0.98)'
@@ -570,8 +560,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
     paddingHorizontal: 10,
-    paddingTop: 1,
-    paddingBottom: 50,
+    paddingTop: 50,
+    paddingBottom: 10,
     // borderWidth: 5,
     // borderColor: 'rgba(0, 128, 255, 0.98)'
   },
@@ -583,10 +573,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
     paddingTop: 20,
-    marginBottom: 50
-    // ,
+    paddingBottom: 10,
     // borderWidth: 5,
-    // borderColor: 'rgba(255, 0, 0, 0.98)'
+    // borderColor: 'rgba(74, 139, 100, 0.98)'
   },
   portraitAltitudeSection: {
     alignItems: 'center',
@@ -596,26 +585,16 @@ const styles = StyleSheet.create({
     // borderColor: 'rgba(255, 0, 0, 0.98)'
   },
   portraitGaugesWrapper: {
-    flexGrow: 1,
-    flexShrink: 0,
+    flex: 1,
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-evenly'
-    // ,
-    // borderWidth: 5,
-    // borderColor: 'rgb(85, 73, 139)'
+    justifyContent: 'space-evenly',
   },
   portraitGaugeItem: {
-    flexGrow: 0,
-    flexShrink: 0,
-    flexBasis: '50%',
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 100
-    // ,
-    // borderWidth: 5,
-    // borderColor: 'rgba(255, 0, 0, 0.98)'
   },
   speedAndTemperatureRow_Portrait: {
     flexDirection: 'row',
@@ -626,9 +605,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 15,
     paddingHorizontal: 20,
-    marginBottom: 150,
-    // borderWidth: 5,
-    // borderColor: 'rgba(30, 255, 0, 0.98)'
+    marginTop: 'auto',
+    marginBottom: 15,
   },
   portraitInfoItem: {
     alignItems: 'center',
@@ -670,6 +648,12 @@ const styles = StyleSheet.create({
     textShadowRadius: 15,
     textShadowOffset: { width: 0, height: 0 },
     letterSpacing: -1,
+  },
+  altitudeLabel: {
+    fontSize: 12,
+    color: 'rgb(153, 153, 153)',
+    letterSpacing: 0.3,
+    marginTop: 2,
   },
   speedAndTemperatureRow_Land: {
     flexDirection: 'row',
@@ -739,21 +723,35 @@ const styles = StyleSheet.create({
     // borderWidth: 5,
     // borderColor: 'rgba(66, 69, 147, 0.98)'
   },
-  calibrateButton: {
-    position: 'absolute',
-    bottom: 60,
+  calibrateButtonPortrait: {
     alignSelf: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.24)',
     paddingHorizontal: 25,
     paddingVertical: 12,
     borderRadius: 25,
     borderWidth: 2,
-    borderColor: 'rgb(101, 101, 101)'
-    
+    borderColor: 'rgb(101, 101, 101)',
+    marginTop: 'auto',
+    marginBottom: 30,    
+    // borderWidth: 5,
+    // borderColor: 'rgba(182, 222, 50, 0.98)'
+  },
+  calibrateButtonLandscape: {
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.24)',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: 'rgb(101, 101, 101)',
+    marginTop: 50,
+    marginBottom: 0,    
+    // borderWidth: 5,
+    // borderColor: 'rgba(182, 222, 50, 0.98)'
   },
   calibrateText: {
     color: 'rgb(101, 101, 101)',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'bold',
     letterSpacing: 1,
   },
