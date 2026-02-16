@@ -15,6 +15,7 @@ import {
   FlatList,
   ActivityIndicator,
   ScrollView,
+  TextInput,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Location from 'expo-location';
@@ -24,7 +25,7 @@ import { useKeepAwake } from 'expo-keep-awake';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Line, Text as SvgText, Image as SvgImage, Defs, RadialGradient, Stop } from 'react-native-svg';
-import BluetoothSensorService from './services/BluetoothSensorService';
+import WiFiSensorService from './services/WiFiSensorService';
 
 // Widget Module for updating Android widgets
 const WidgetModule = NativeModules.WidgetModule;
@@ -208,13 +209,12 @@ export default function App() {
   const [appState, setAppState] = useState(AppState.currentState);
   const [sensorAvailable, setSensorAvailable] = useState(true);
 
-  // Bluetooth states
-  const [bluetoothMode, setBluetoothMode] = useState(null); // 'sender', 'receiver', or null
-  const [bluetoothConnected, setBluetoothConnected] = useState(false);
-  const [bluetoothDeviceName, setBluetoothDeviceName] = useState(null);
-  const [showBluetoothModal, setShowBluetoothModal] = useState(false);
-  const [availableDevices, setAvailableDevices] = useState([]);
-  const [isScanning, setIsScanning] = useState(false);
+  // WiFi Sensor states
+  const [wifiConnected, setWifiConnected] = useState(false);
+  const [wifiServerIp, setWifiServerIp] = useState('');
+  const [showWifiModal, setShowWifiModal] = useState(false);
+  const [wifiIpInput, setWifiIpInput] = useState('');
+  const [isConnecting, setIsConnecting] = useState(false);
 
   // Menu and custom car images states
   const [showMenu, setShowMenu] = useState(false);
@@ -227,7 +227,6 @@ export default function App() {
 
   // Ref for widget update throttling
   const lastWidgetUpdate = useRef(0);
-  const bluetoothSendInterval = useRef(null);
 
   // Calculated values
   const roll = Math.round((isLandscape ? rawRoll : rawPitch) - (isLandscape ? rollOffset : pitchOffset));
@@ -743,6 +742,39 @@ export default function App() {
                     <Text style={styles.resetButtonText}>🔄 Default სურათების დაბრუნება</Text>
                   </TouchableOpacity>
                 </View>
+
+                {/* Calibration Section */}
+                <View style={styles.menuSection}>
+                  <Text style={styles.menuSectionTitle}>⚙️ კალიბრაცია</Text>
+                  <TouchableOpacity
+                    style={styles.calibrateMenuButton}
+                    onPress={() => {
+                      calibrate();
+                      setShowMenu(false);
+                    }}
+                  >
+                    <Text style={styles.calibrateMenuButtonText}>⚙ CALIBRATE / RESET ZERO</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Bluetooth Section */}
+                {!sensorAvailable && (
+                  <View style={styles.menuSection}>
+                    <Text style={styles.menuSectionTitle}>📡 Bluetooth სენსორი</Text>
+                    <Text style={styles.menuSectionSubtitle}>
+                      დაუკავშირდით ტელეფონს სენსორის მონაცემების მისაღებად
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.uploadButton}
+                      onPress={() => {
+                        setShowMenu(false);
+                        startBluetoothReceiver();
+                      }}
+                    >
+                      <Text style={styles.uploadButtonText}>🔍 მოწყობილობების ძებნა</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </ScrollView>
 
               {/* Close Button */}
@@ -1478,5 +1510,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  calibrateMenuButton: {
+    backgroundColor: 'rgba(101, 101, 101, 0.3)',
+    borderWidth: 2,
+    borderColor: 'rgb(101, 101, 101)',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    alignItems: 'center',
+  },
+  calibrateMenuButtonText: {
+    color: 'rgb(200, 200, 200)',
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 1,
   },
 });
