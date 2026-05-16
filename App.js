@@ -26,6 +26,7 @@ import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Line, Text as SvgText, Image as SvgImage, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { WebView } from 'react-native-webview';
 import WiFiSensorService from './services/WiFiSensorService';
 import BluetoothSensorService from './services/BluetoothSensorService';
 
@@ -48,6 +49,31 @@ const STORAGE_KEY_CAR_SIDE = '@car_side_image';
 const ROUND_BG = require('./assets/images/round.png');
 const SPEED_BG = require('./assets/images/speed.png');
 const TEMP_BG = require('./assets/images/temperature.png');
+
+// Front-facing camera stream via WebView getUserMedia (separate renderer process)
+const REAR_CAMERA_HTML = `<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{width:100%;height:100%;background:#0a0a0a;overflow:hidden}
+    video{width:100%;height:100%;object-fit:cover;display:block}
+  </style>
+</head>
+<body>
+  <video id="v" autoplay playsinline muted></video>
+  <script>
+    (function(){
+      var v=document.getElementById('v');
+      if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){return;}
+      navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false})
+        .then(function(s){v.srcObject=s;})
+        .catch(function(){});
+    })();
+  </script>
+</body>
+</html>`;
 
 // ===== RESPONSIVE GAUGE COMPONENT =====
 const Gauge = ({ value, max = 50, color = 'rgb(0, 255, 136)', title = 'PITCH', carImage, isLandscape, screenWidth, screenHeight, compact = false }) => {
@@ -203,9 +229,6 @@ export default function App() {
 
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [cameraFullscreen, setCameraFullscreen] = useState(false);
-  const frontCaptureRef = useRef(null);
-  const [lastFrontFrame, setLastFrontFrame] = useState(null);
-  const [frontCameraAvailable, setFrontCameraAvailable] = useState(false);
 
   const [rawPitch, setRawPitch] = useState(13);
   const [rawRoll, setRawRoll] = useState(-14);
@@ -576,26 +599,6 @@ export default function App() {
     };
   }, []);
 
-  // Periodic front-camera frame capture
-  useEffect(() => {
-    if (!cameraPermission?.granted || !frontCameraAvailable) return;
-
-    const capture = async () => {
-      if (!frontCaptureRef.current) return;
-      try {
-        const photo = await frontCaptureRef.current.takePictureAsync({
-          quality: 0.25,
-          skipProcessing: true,
-          exif: false,
-        });
-        setLastFrontFrame({ uri: photo.uri });
-      } catch (_) {}
-    };
-
-    capture();
-    const interval = setInterval(capture, 2500);
-    return () => clearInterval(interval);
-  }, [cameraPermission?.granted, frontCameraAvailable]);
 
   // ===== LOAD SAVED CAR IMAGES =====
   useEffect(() => {
@@ -1102,15 +1105,18 @@ export default function App() {
                   <Text style={styles.cameraLabel}>FRONT</Text>
                 </View>
 
-                {/* REAR (front-facing lens — captured frames) */}
+                {/* REAR (front-facing lens — WebView getUserMedia) */}
                 <View style={styles.cameraHalfLand}>
                   <View style={styles.cameraFrameLand}>
-                    {lastFrontFrame ? (
-                      <Image source={lastFrontFrame} style={styles.cameraPreview} resizeMode="cover" />
-                    ) : cameraPermission?.granted ? (
-                      <View style={styles.rearCameraWaiting}>
-                        <ActivityIndicator size="small" color="rgb(80,80,80)" />
-                      </View>
+                    {cameraPermission?.granted ? (
+                      <WebView
+                        source={{ html: REAR_CAMERA_HTML }}
+                        style={styles.cameraPreview}
+                        allowsInlineMediaPlayback={true}
+                        mediaPlaybackRequiresUserAction={false}
+                        javaScriptEnabled={true}
+                        scrollEnabled={false}
+                      />
                     ) : (
                       <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
                         <Text style={styles.cameraPermissionIcon}>📷</Text>
@@ -1233,15 +1239,18 @@ export default function App() {
                 <Text style={styles.cameraLabel}>FRONT</Text>
               </View>
 
-              {/* REAR (front-facing lens — captured frames) */}
+              {/* REAR (front-facing lens — WebView getUserMedia) */}
               <View style={styles.cameraHalf}>
                 <View style={styles.cameraFrameHalf}>
-                  {lastFrontFrame ? (
-                    <Image source={lastFrontFrame} style={styles.cameraPreview} resizeMode="cover" />
-                  ) : cameraPermission?.granted ? (
-                    <View style={styles.rearCameraWaiting}>
-                      <ActivityIndicator size="small" color="rgb(80,80,80)" />
-                    </View>
+                  {cameraPermission?.granted ? (
+                    <WebView
+                      source={{ html: REAR_CAMERA_HTML }}
+                      style={styles.cameraPreview}
+                      allowsInlineMediaPlayback={true}
+                      mediaPlaybackRequiresUserAction={false}
+                      javaScriptEnabled={true}
+                      scrollEnabled={false}
+                    />
                   ) : (
                     <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
                       <Text style={styles.cameraPermissionIcon}>📷</Text>
@@ -1282,18 +1291,6 @@ export default function App() {
 
       </View>
 
-      {/* Hidden off-screen front camera for periodic frame capture */}
-      {cameraPermission?.granted && (
-        <View style={styles.hiddenCameraContainer}>
-          <CameraView
-            ref={frontCaptureRef}
-            style={styles.hiddenCamera}
-            facing="front"
-            onCameraReady={() => setFrontCameraAvailable(true)}
-          />
-        </View>
-      )}
-
       {/* ===== CAMERA FULLSCREEN MODAL ===== */}
       <Modal
         visible={cameraFullscreen}
@@ -1315,10 +1312,17 @@ export default function App() {
             </View>
           </View>
 
-          {/* REAR slot — captured front frames */}
+          {/* REAR slot — WebView getUserMedia */}
           <View style={styles.cameraFsSlot}>
-            {lastFrontFrame ? (
-              <Image source={lastFrontFrame} style={{ flex: 1 }} resizeMode="cover" />
+            {cameraPermission?.granted ? (
+              <WebView
+                source={{ html: REAR_CAMERA_HTML }}
+                style={{ flex: 1 }}
+                allowsInlineMediaPlayback={true}
+                mediaPlaybackRequiresUserAction={false}
+                javaScriptEnabled={true}
+                scrollEnabled={false}
+              />
             ) : (
               <View style={styles.cameraFsInactive} />
             )}
@@ -1460,24 +1464,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  rearCameraWaiting: {
-    flex: 1,
-    backgroundColor: 'rgb(10,10,10)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hiddenCameraContainer: {
-    position: 'absolute',
-    top: -300,
-    left: 0,
-    width: 160,
-    height: 120,
-    overflow: 'hidden',
-  },
-  hiddenCamera: {
-    width: 160,
-    height: 120,
   },
   cameraContainer: {
     flex: 1,
