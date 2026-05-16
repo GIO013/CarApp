@@ -73,9 +73,10 @@
         }
       ],
       [
-        "expo-camera",
+        "react-native-vision-camera",
         {
-          "cameraPermission": "Allow Car Dashboard to access the camera for front and rear dashcam views."
+          "cameraPermissionText": "Allow Car Dashboard to access the camera for front and rear dashcam views.",
+          "enableMicrophonePermission": false
         }
       ],
       "./plugins/withAndroidFeatures.js",

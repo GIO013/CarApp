@@ -25,7 +25,7 @@ import { useKeepAwake } from 'expo-keep-awake';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Line, Text as SvgText, Image as SvgImage, Defs, RadialGradient, Stop } from 'react-native-svg';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Camera, useCameraPermission, useCameraDevice } from 'react-native-vision-camera';
 import WiFiSensorService from './services/WiFiSensorService';
 import BluetoothSensorService from './services/BluetoothSensorService';
 
@@ -201,7 +201,10 @@ export default function App() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const isLandscape = screenWidth > screenHeight;
 
-  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const { hasPermission: cameraHasPermission, requestPermission: requestCameraPermission } = useCameraPermission();
+  const cameraPermission = { granted: cameraHasPermission };
+  const backDevice = useCameraDevice('back');
+  const frontDevice = useCameraDevice('front');
   const [cameraFullscreen, setCameraFullscreen] = useState(false);
 
   const [rawPitch, setRawPitch] = useState(13);
@@ -1067,8 +1070,8 @@ export default function App() {
                 {/* FRONT (back-facing lens) */}
                 <View style={styles.cameraHalfLand}>
                   <View style={styles.cameraFrameLand}>
-                    {cameraPermission?.granted ? (
-                      <CameraView style={styles.cameraPreview} facing="back" />
+                    {cameraPermission?.granted && backDevice ? (
+                      <Camera device={backDevice} isActive={true} style={styles.cameraPreview} />
                     ) : (
                       <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
                         <Text style={styles.cameraPermissionIcon}>📷</Text>
@@ -1081,8 +1084,8 @@ export default function App() {
                 {/* REAR (front-facing lens) */}
                 <View style={styles.cameraHalfLand}>
                   <View style={styles.cameraFrameLand}>
-                    {cameraPermission?.granted ? (
-                      <CameraView style={styles.cameraPreview} facing="front" />
+                    {cameraPermission?.granted && frontDevice ? (
+                      <Camera device={frontDevice} isActive={true} style={styles.cameraPreview} />
                     ) : (
                       <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
                         <Text style={styles.cameraPermissionIcon}>📷</Text>
@@ -1193,8 +1196,8 @@ export default function App() {
               {/* FRONT (back-facing lens) */}
               <View style={styles.cameraHalf}>
                 <View style={styles.cameraFrameHalf}>
-                  {cameraPermission?.granted ? (
-                    <CameraView style={styles.cameraPreview} facing="back" />
+                  {cameraPermission?.granted && backDevice ? (
+                    <Camera device={backDevice} isActive={true} style={styles.cameraPreview} />
                   ) : (
                     <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
                       <Text style={styles.cameraPermissionIcon}>📷</Text>
@@ -1208,8 +1211,8 @@ export default function App() {
               {/* REAR (front-facing lens) */}
               <View style={styles.cameraHalf}>
                 <View style={styles.cameraFrameHalf}>
-                  {cameraPermission?.granted ? (
-                    <CameraView style={styles.cameraPreview} facing="front" />
+                  {cameraPermission?.granted && frontDevice ? (
+                    <Camera device={frontDevice} isActive={true} style={styles.cameraPreview} />
                   ) : (
                     <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
                       <Text style={styles.cameraPermissionIcon}>📷</Text>
@@ -1261,8 +1264,8 @@ export default function App() {
         <View style={[styles.cameraFsContainer, { flexDirection: isLandscape ? 'row' : 'column' }]}>
           {/* FRONT slot */}
           <View style={styles.cameraFsSlot}>
-            {cameraPermission?.granted ? (
-              <CameraView key="fs-back" style={{ flex: 1 }} facing="back" />
+            {cameraPermission?.granted && backDevice ? (
+              <Camera key="fs-back" device={backDevice} isActive={true} style={{ flex: 1 }} />
             ) : (
               <View style={styles.cameraFsInactive} />
             )}
@@ -1273,8 +1276,8 @@ export default function App() {
 
           {/* REAR slot */}
           <View style={styles.cameraFsSlot}>
-            {cameraPermission?.granted ? (
-              <CameraView key="fs-front" style={{ flex: 1 }} facing="front" />
+            {cameraPermission?.granted && frontDevice ? (
+              <Camera key="fs-front" device={frontDevice} isActive={true} style={{ flex: 1 }} />
             ) : (
               <View style={styles.cameraFsInactive} />
             )}
