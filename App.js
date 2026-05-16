@@ -202,6 +202,8 @@ export default function App() {
   const isLandscape = screenWidth > screenHeight;
 
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [activeFacing, setActiveFacing] = useState('back'); // 'back'=FRONT dashcam, 'front'=REAR dashcam
+  const [cameraFullscreen, setCameraFullscreen] = useState(false);
 
   const [rawPitch, setRawPitch] = useState(13);
   const [rawRoll, setRawRoll] = useState(-14);
@@ -1061,32 +1063,35 @@ export default function App() {
               </Text>
               <Text style={styles.altitudeLabel}>Altitude</Text>
 
-              {/* Cameras - FRONT & REAR side by side */}
+              {/* Camera (single active + toggle + fullscreen) */}
               <View style={styles.cameraSectionLand}>
-                <View style={styles.cameraContainerLand}>
-                  <View style={styles.cameraFrameLand}>
-                    {cameraPermission?.granted ? (
-                      <CameraView style={styles.cameraPreview} facing="back" />
-                    ) : (
-                      <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
-                        <Text style={styles.cameraPermissionIcon}>📷</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                  <Text style={styles.cameraLabel}>FRONT</Text>
+                <View style={styles.cameraFrameLand}>
+                  {cameraPermission?.granted ? (
+                    <CameraView key={activeFacing} style={styles.cameraPreview} facing={activeFacing} />
+                  ) : (
+                    <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
+                      <Text style={styles.cameraPermissionIcon}>📷</Text>
+                    </TouchableOpacity>
+                  )}
+                  {/* Fullscreen expand button */}
+                  <TouchableOpacity style={styles.cameraExpandBtn} onPress={() => setCameraFullscreen(true)}>
+                    <Text style={styles.cameraExpandIcon}>⛶</Text>
+                  </TouchableOpacity>
                 </View>
-
-                <View style={styles.cameraContainerLand}>
-                  <View style={styles.cameraFrameLand}>
-                    {cameraPermission?.granted ? (
-                      <CameraView style={styles.cameraPreview} facing="front" />
-                    ) : (
-                      <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
-                        <Text style={styles.cameraPermissionIcon}>📷</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                  <Text style={styles.cameraLabel}>REAR</Text>
+                {/* FRONT / REAR toggle */}
+                <View style={styles.cameraFacingToggleLand}>
+                  <TouchableOpacity
+                    style={[styles.cameraFacingBtn, activeFacing === 'back' && styles.cameraFacingBtnActive]}
+                    onPress={() => setActiveFacing('back')}
+                  >
+                    <Text style={[styles.cameraFacingText, activeFacing === 'back' && styles.cameraFacingTextActive]}>FRONT</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.cameraFacingBtn, activeFacing === 'front' && styles.cameraFacingBtnActive]}
+                    onPress={() => setActiveFacing('front')}
+                  >
+                    <Text style={[styles.cameraFacingText, activeFacing === 'front' && styles.cameraFacingTextActive]}>REAR</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -1180,36 +1185,36 @@ export default function App() {
               </View>
             </View>
 
-            {/* Camera Section - Front & Rear */}
+            {/* Camera Section */}
             <View style={styles.cameraSection}>
-              {/* Front Camera (back-facing lens = forward view) */}
-              <View style={styles.cameraContainer}>
-                <View style={styles.cameraFrame}>
-                  {cameraPermission?.granted ? (
-                    <CameraView style={styles.cameraPreview} facing="back" />
-                  ) : (
-                    <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
-                      <Text style={styles.cameraPermissionIcon}>📷</Text>
-                      <Text style={styles.cameraPermissionText}>ნებართვა</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                <Text style={styles.cameraLabel}>FRONT</Text>
+              <View style={styles.cameraFrame}>
+                {cameraPermission?.granted ? (
+                  <CameraView key={activeFacing} style={styles.cameraPreview} facing={activeFacing} />
+                ) : (
+                  <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
+                    <Text style={styles.cameraPermissionIcon}>📷</Text>
+                    <Text style={styles.cameraPermissionText}>ნებართვა</Text>
+                  </TouchableOpacity>
+                )}
+                {/* Fullscreen expand button */}
+                <TouchableOpacity style={styles.cameraExpandBtn} onPress={() => setCameraFullscreen(true)}>
+                  <Text style={styles.cameraExpandIcon}>⛶</Text>
+                </TouchableOpacity>
               </View>
-
-              {/* Rear Camera (front-facing lens = driver view) */}
-              <View style={styles.cameraContainer}>
-                <View style={styles.cameraFrame}>
-                  {cameraPermission?.granted ? (
-                    <CameraView style={styles.cameraPreview} facing="front" />
-                  ) : (
-                    <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
-                      <Text style={styles.cameraPermissionIcon}>📷</Text>
-                      <Text style={styles.cameraPermissionText}>ნებართვა</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-                <Text style={styles.cameraLabel}>REAR</Text>
+              {/* FRONT / REAR toggle */}
+              <View style={styles.cameraFacingToggle}>
+                <TouchableOpacity
+                  style={[styles.cameraFacingBtn, activeFacing === 'back' && styles.cameraFacingBtnActive]}
+                  onPress={() => setActiveFacing('back')}
+                >
+                  <Text style={[styles.cameraFacingText, activeFacing === 'back' && styles.cameraFacingTextActive]}>FRONT</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.cameraFacingBtn, activeFacing === 'front' && styles.cameraFacingBtnActive]}
+                  onPress={() => setActiveFacing('front')}
+                >
+                  <Text style={[styles.cameraFacingText, activeFacing === 'front' && styles.cameraFacingTextActive]}>REAR</Text>
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -1236,6 +1241,64 @@ export default function App() {
         )}
 
       </View>
+
+      {/* ===== CAMERA FULLSCREEN MODAL ===== */}
+      <Modal
+        visible={cameraFullscreen}
+        transparent={false}
+        animationType="fade"
+        onRequestClose={() => setCameraFullscreen(false)}
+        statusBarTranslucent
+      >
+        <View style={[styles.cameraFsContainer, { flexDirection: isLandscape ? 'row' : 'column' }]}>
+          {/* FRONT slot */}
+          <View style={styles.cameraFsSlot}>
+            {cameraPermission?.granted && activeFacing === 'back' ? (
+              <CameraView key="fs-back" style={{ flex: 1 }} facing="back" />
+            ) : (
+              <View style={styles.cameraFsInactive} />
+            )}
+            <View style={styles.cameraFsLabelBox}>
+              <Text style={styles.cameraFsLabel}>FRONT</Text>
+            </View>
+          </View>
+
+          {/* REAR slot */}
+          <View style={styles.cameraFsSlot}>
+            {cameraPermission?.granted && activeFacing === 'front' ? (
+              <CameraView key="fs-front" style={{ flex: 1 }} facing="front" />
+            ) : (
+              <View style={styles.cameraFsInactive} />
+            )}
+            <View style={styles.cameraFsLabelBox}>
+              <Text style={styles.cameraFsLabel}>REAR</Text>
+            </View>
+          </View>
+
+          {/* Controls overlay */}
+          <View style={styles.cameraFsControls}>
+            {/* FRONT / REAR toggle */}
+            <TouchableOpacity
+              style={[styles.cameraFsToggleBtn, activeFacing === 'back' && styles.cameraFsToggleBtnActive]}
+              onPress={() => setActiveFacing('back')}
+            >
+              <Text style={[styles.cameraFsToggleText, activeFacing === 'back' && styles.cameraFsToggleTextActive]}>FRONT</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.cameraFsToggleBtn, activeFacing === 'front' && styles.cameraFsToggleBtnActive]}
+              onPress={() => setActiveFacing('front')}
+            >
+              <Text style={[styles.cameraFsToggleText, activeFacing === 'front' && styles.cameraFsToggleTextActive]}>REAR</Text>
+            </TouchableOpacity>
+
+            {/* Close button */}
+            <TouchableOpacity style={styles.cameraFsCloseBtn} onPress={() => setCameraFullscreen(false)}>
+              <Text style={styles.cameraFsCloseText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </ImageBackground>
   );
 }
@@ -1331,10 +1394,8 @@ const styles = StyleSheet.create({
   // ===== CAMERA SECTION =====
   cameraSection: {
     width: '90%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: 10,
-    gap: 8,
   },
   cameraContainer: {
     flex: 1,
@@ -1342,7 +1403,7 @@ const styles = StyleSheet.create({
   },
   cameraFrame: {
     width: '100%',
-    aspectRatio: 4 / 3,
+    aspectRatio: 16 / 9,
     borderRadius: 10,
     overflow: 'hidden',
     backgroundColor: 'rgb(10, 10, 10)',
@@ -1373,15 +1434,139 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     marginTop: 4,
   },
+  cameraExpandBtn: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 30,
+    height: 30,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraExpandIcon: {
+    fontSize: 16,
+    color: 'white',
+  },
+  cameraFacingToggle: {
+    flexDirection: 'row',
+    marginTop: 6,
+    gap: 8,
+  },
+  cameraFacingToggleLand: {
+    flexDirection: 'row',
+    marginTop: 5,
+    gap: 6,
+    alignSelf: 'center',
+  },
+  cameraFacingBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgb(70,70,70)',
+  },
+  cameraFacingBtnActive: {
+    backgroundColor: 'rgba(0,229,255,0.15)',
+    borderColor: 'rgb(0,229,255)',
+  },
+  cameraFacingText: {
+    color: 'rgb(110,110,110)',
+    fontSize: 11,
+    fontWeight: 'bold',
+    letterSpacing: 1.2,
+  },
+  cameraFacingTextActive: {
+    color: 'rgb(0,229,255)',
+  },
+
+  // ===== CAMERA FULLSCREEN =====
+  cameraFsContainer: {
+    flex: 1,
+    backgroundColor: 'black',
+  },
+  cameraFsSlot: {
+    flex: 1,
+    position: 'relative',
+    backgroundColor: 'rgb(8,8,8)',
+  },
+  cameraFsInactive: {
+    flex: 1,
+    backgroundColor: 'rgb(15,15,15)',
+  },
+  cameraFsLabelBox: {
+    position: 'absolute',
+    top: 12,
+    left: 14,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  cameraFsLabel: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 13,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+  },
+  cameraFsControls: {
+    position: 'absolute',
+    bottom: 30,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 30,
+  },
+  cameraFsToggleBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgb(70,70,70)',
+  },
+  cameraFsToggleBtnActive: {
+    backgroundColor: 'rgba(0,229,255,0.2)',
+    borderColor: 'rgb(0,229,255)',
+  },
+  cameraFsToggleText: {
+    color: 'rgb(130,130,130)',
+    fontSize: 13,
+    fontWeight: 'bold',
+    letterSpacing: 1.5,
+  },
+  cameraFsToggleTextActive: {
+    color: 'rgb(0,229,255)',
+  },
+  cameraFsCloseBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,100,100,0.25)',
+    borderWidth: 1,
+    borderColor: 'rgb(255,100,100)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
+  },
+  cameraFsCloseText: {
+    color: 'rgb(255,100,100)',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 
   // ===== LANDSCAPE CAMERA STYLES =====
   cameraSectionLand: {
-    flexDirection: 'row',
     width: '100%',
-    justifyContent: 'space-between',
+    alignItems: 'center',
     marginTop: 8,
     marginBottom: 6,
-    gap: 6,
   },
   cameraContainerLand: {
     flex: 1,
@@ -1389,7 +1574,7 @@ const styles = StyleSheet.create({
   },
   cameraFrameLand: {
     width: '100%',
-    aspectRatio: 4 / 3,
+    aspectRatio: 16 / 9,
     borderRadius: 8,
     overflow: 'hidden',
     backgroundColor: 'rgb(10, 10, 10)',
