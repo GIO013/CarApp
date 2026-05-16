@@ -25,7 +25,7 @@ import { useKeepAwake } from 'expo-keep-awake';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Line, Text as SvgText, Image as SvgImage, Defs, RadialGradient, Stop } from 'react-native-svg';
-import { Camera, useCameraPermission, useCameraDevice } from 'react-native-vision-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import WiFiSensorService from './services/WiFiSensorService';
 import BluetoothSensorService from './services/BluetoothSensorService';
 
@@ -201,11 +201,11 @@ export default function App() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const isLandscape = screenWidth > screenHeight;
 
-  const { hasPermission: cameraHasPermission, requestPermission: requestCameraPermission } = useCameraPermission();
-  const cameraPermission = { granted: cameraHasPermission };
-  const backDevice = useCameraDevice('back');
-  const frontDevice = useCameraDevice('front');
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [cameraFullscreen, setCameraFullscreen] = useState(false);
+  const frontCaptureRef = useRef(null);
+  const [lastFrontFrame, setLastFrontFrame] = useState(null);
+  const [frontCameraAvailable, setFrontCameraAvailable] = useState(false);
 
   const [rawPitch, setRawPitch] = useState(13);
   const [rawRoll, setRawRoll] = useState(-14);
@@ -575,6 +575,27 @@ export default function App() {
       WiFiSensorService.disconnect();
     };
   }, []);
+
+  // Periodic front-camera frame capture
+  useEffect(() => {
+    if (!cameraPermission?.granted || !frontCameraAvailable) return;
+
+    const capture = async () => {
+      if (!frontCaptureRef.current) return;
+      try {
+        const photo = await frontCaptureRef.current.takePictureAsync({
+          quality: 0.25,
+          skipProcessing: true,
+          exif: false,
+        });
+        setLastFrontFrame({ uri: photo.uri });
+      } catch (_) {}
+    };
+
+    capture();
+    const interval = setInterval(capture, 2500);
+    return () => clearInterval(interval);
+  }, [cameraPermission?.granted, frontCameraAvailable]);
 
   // ===== LOAD SAVED CAR IMAGES =====
   useEffect(() => {
@@ -1067,11 +1088,11 @@ export default function App() {
 
               {/* Cameras — FRONT & REAR simultaneously */}
               <View style={styles.cameraSectionLand}>
-                {/* FRONT (back-facing lens) */}
+                {/* FRONT (back-facing lens — live) */}
                 <View style={styles.cameraHalfLand}>
                   <View style={styles.cameraFrameLand}>
-                    {cameraPermission?.granted && backDevice ? (
-                      <Camera device={backDevice} isActive={true} style={styles.cameraPreview} />
+                    {cameraPermission?.granted ? (
+                      <CameraView style={styles.cameraPreview} facing="back" />
                     ) : (
                       <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
                         <Text style={styles.cameraPermissionIcon}>📷</Text>
@@ -1081,11 +1102,15 @@ export default function App() {
                   <Text style={styles.cameraLabel}>FRONT</Text>
                 </View>
 
-                {/* REAR (front-facing lens) */}
+                {/* REAR (front-facing lens — captured frames) */}
                 <View style={styles.cameraHalfLand}>
                   <View style={styles.cameraFrameLand}>
-                    {cameraPermission?.granted && frontDevice ? (
-                      <Camera device={frontDevice} isActive={true} style={styles.cameraPreview} />
+                    {lastFrontFrame ? (
+                      <Image source={lastFrontFrame} style={styles.cameraPreview} resizeMode="cover" />
+                    ) : cameraPermission?.granted ? (
+                      <View style={styles.rearCameraWaiting}>
+                        <ActivityIndicator size="small" color="rgb(80,80,80)" />
+                      </View>
                     ) : (
                       <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
                         <Text style={styles.cameraPermissionIcon}>📷</Text>
@@ -1193,11 +1218,11 @@ export default function App() {
 
             {/* Camera Section — FRONT & REAR simultaneously */}
             <View style={styles.cameraSection}>
-              {/* FRONT (back-facing lens) */}
+              {/* FRONT (back-facing lens — live) */}
               <View style={styles.cameraHalf}>
                 <View style={styles.cameraFrameHalf}>
-                  {cameraPermission?.granted && backDevice ? (
-                    <Camera device={backDevice} isActive={true} style={styles.cameraPreview} />
+                  {cameraPermission?.granted ? (
+                    <CameraView style={styles.cameraPreview} facing="back" />
                   ) : (
                     <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
                       <Text style={styles.cameraPermissionIcon}>📷</Text>
@@ -1208,11 +1233,15 @@ export default function App() {
                 <Text style={styles.cameraLabel}>FRONT</Text>
               </View>
 
-              {/* REAR (front-facing lens) */}
+              {/* REAR (front-facing lens — captured frames) */}
               <View style={styles.cameraHalf}>
                 <View style={styles.cameraFrameHalf}>
-                  {cameraPermission?.granted && frontDevice ? (
-                    <Camera device={frontDevice} isActive={true} style={styles.cameraPreview} />
+                  {lastFrontFrame ? (
+                    <Image source={lastFrontFrame} style={styles.cameraPreview} resizeMode="cover" />
+                  ) : cameraPermission?.granted ? (
+                    <View style={styles.rearCameraWaiting}>
+                      <ActivityIndicator size="small" color="rgb(80,80,80)" />
+                    </View>
                   ) : (
                     <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
                       <Text style={styles.cameraPermissionIcon}>📷</Text>
@@ -1253,6 +1282,18 @@ export default function App() {
 
       </View>
 
+      {/* Hidden off-screen front camera for periodic frame capture */}
+      {cameraPermission?.granted && (
+        <View style={styles.hiddenCameraContainer}>
+          <CameraView
+            ref={frontCaptureRef}
+            style={styles.hiddenCamera}
+            facing="front"
+            onCameraReady={() => setFrontCameraAvailable(true)}
+          />
+        </View>
+      )}
+
       {/* ===== CAMERA FULLSCREEN MODAL ===== */}
       <Modal
         visible={cameraFullscreen}
@@ -1262,10 +1303,10 @@ export default function App() {
         statusBarTranslucent
       >
         <View style={[styles.cameraFsContainer, { flexDirection: isLandscape ? 'row' : 'column' }]}>
-          {/* FRONT slot */}
+          {/* FRONT slot — live back camera */}
           <View style={styles.cameraFsSlot}>
-            {cameraPermission?.granted && backDevice ? (
-              <Camera key="fs-back" device={backDevice} isActive={true} style={{ flex: 1 }} />
+            {cameraPermission?.granted ? (
+              <CameraView key="fs-back" style={{ flex: 1 }} facing="back" />
             ) : (
               <View style={styles.cameraFsInactive} />
             )}
@@ -1274,10 +1315,10 @@ export default function App() {
             </View>
           </View>
 
-          {/* REAR slot */}
+          {/* REAR slot — captured front frames */}
           <View style={styles.cameraFsSlot}>
-            {cameraPermission?.granted && frontDevice ? (
-              <Camera key="fs-front" device={frontDevice} isActive={true} style={{ flex: 1 }} />
+            {lastFrontFrame ? (
+              <Image source={lastFrontFrame} style={{ flex: 1 }} resizeMode="cover" />
             ) : (
               <View style={styles.cameraFsInactive} />
             )}
@@ -1419,6 +1460,24 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  rearCameraWaiting: {
+    flex: 1,
+    backgroundColor: 'rgb(10,10,10)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hiddenCameraContainer: {
+    position: 'absolute',
+    top: -300,
+    left: 0,
+    width: 160,
+    height: 120,
+    overflow: 'hidden',
+  },
+  hiddenCamera: {
+    width: 160,
+    height: 120,
   },
   cameraContainer: {
     flex: 1,
