@@ -25,7 +25,9 @@ import { useKeepAwake } from 'expo-keep-awake';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Line, Text as SvgText, Image as SvgImage, Defs, RadialGradient, Stop } from 'react-native-svg';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import WiFiSensorService from './services/WiFiSensorService';
+import BluetoothSensorService from './services/BluetoothSensorService';
 
 // Widget Module for updating Android widgets
 const WidgetModule = NativeModules.WidgetModule;
@@ -48,11 +50,13 @@ const SPEED_BG = require('./assets/images/speed.png');
 const TEMP_BG = require('./assets/images/temperature.png');
 
 // ===== RESPONSIVE GAUGE COMPONENT =====
-const Gauge = ({ value, max = 50, color = 'rgb(0, 255, 136)', title = 'PITCH', carImage, isLandscape, screenWidth, screenHeight }) => {
+const Gauge = ({ value, max = 50, color = 'rgb(0, 255, 136)', title = 'PITCH', carImage, isLandscape, screenWidth, screenHeight, compact = false }) => {
   // Responsive sizing based on screen dimensions
   const size = isLandscape
     ? Math.min(screenHeight * 0.65, screenWidth * 0.38)
-    : Math.min(screenWidth * 0.48, screenHeight * 0.35);
+    : compact
+      ? Math.min(screenWidth * 0.46, screenHeight * 0.22)
+      : Math.min(screenWidth * 0.48, screenHeight * 0.35);
 
   const center = size / 2;
   const radius = size * 0.36;
@@ -197,6 +201,8 @@ export default function App() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const isLandscape = screenWidth > screenHeight;
 
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+
   const [rawPitch, setRawPitch] = useState(13);
   const [rawRoll, setRawRoll] = useState(-14);
   const [pitchOffset, setPitchOffset] = useState(0);
@@ -215,6 +221,15 @@ export default function App() {
   const [showWifiModal, setShowWifiModal] = useState(false);
   const [wifiIpInput, setWifiIpInput] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
+
+  // Bluetooth states
+  const [bluetoothConnected, setBluetoothConnected] = useState(false);
+  const [bluetoothDeviceName, setBluetoothDeviceName] = useState(null);
+  const [bluetoothMode, setBluetoothMode] = useState(null);
+  const [showBluetoothModal, setShowBluetoothModal] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [availableDevices, setAvailableDevices] = useState([]);
+  const bluetoothSendInterval = useRef(null);
 
   // Menu and custom car images states
   const [showMenu, setShowMenu] = useState(false);
@@ -319,13 +334,14 @@ export default function App() {
     setRollOffset(rawRoll);
   };
 
-  // ===== LOCATION PERMISSION =====
+  // ===== LOCATION & CAMERA PERMISSIONS =====
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission required', 'Location access needed for altitude & speed.');
       }
+      await requestCameraPermission();
     })();
   }, []);
 
@@ -884,6 +900,35 @@ export default function App() {
               </Text>
               <Text style={styles.altitudeLabel}>Altitude</Text>
 
+              {/* Cameras - FRONT & REAR side by side */}
+              <View style={styles.cameraSectionLand}>
+                <View style={styles.cameraContainerLand}>
+                  <View style={styles.cameraFrameLand}>
+                    {cameraPermission?.granted ? (
+                      <CameraView style={styles.cameraPreview} facing="back" />
+                    ) : (
+                      <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
+                        <Text style={styles.cameraPermissionIcon}>📷</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <Text style={styles.cameraLabel}>FRONT</Text>
+                </View>
+
+                <View style={styles.cameraContainerLand}>
+                  <View style={styles.cameraFrameLand}>
+                    {cameraPermission?.granted ? (
+                      <CameraView style={styles.cameraPreview} facing="front" />
+                    ) : (
+                      <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
+                        <Text style={styles.cameraPermissionIcon}>📷</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <Text style={styles.cameraLabel}>REAR</Text>
+                </View>
+              </View>
+
               <View style={styles.speedAndTemperatureRow_Land}>
                 <View style={styles.infoItemContainer}>
                   <View style={styles.iconWrapper}>
@@ -933,7 +978,7 @@ export default function App() {
           </View>
         ) : (
           /* ===== PORTRAIT LAYOUT ===== */
-          /* Structure: Altitude -> Pitch/Roll Gauges -> Speed/Temp Info */
+          /* Structure: Altitude -> Pitch/Roll Gauges (compact) -> Cameras -> Speed/Temp -> Calibrate */
           <View key="portrait" style={styles.portraitContainer}>
             {/* Altitude at Top */}
             <View style={styles.portraitAltitudeSection}>
@@ -943,7 +988,7 @@ export default function App() {
               <Text style={styles.altitudeLabel}>Altitude</Text>
             </View>
 
-            {/* Gauges Container - Side by Side */}
+            {/* Gauges Container - Side by Side (compact, moved up) */}
             <View style={styles.portraitGaugesWrapper}>
               {/* PITCH Gauge - Left */}
               <View style={styles.portraitGaugeItem}>
@@ -955,6 +1000,7 @@ export default function App() {
                   isLandscape={isLandscape}
                   screenWidth={screenWidth}
                   screenHeight={screenHeight}
+                  compact={true}
                 />
               </View>
 
@@ -968,7 +1014,41 @@ export default function App() {
                   isLandscape={isLandscape}
                   screenWidth={screenWidth}
                   screenHeight={screenHeight}
+                  compact={true}
                 />
+              </View>
+            </View>
+
+            {/* Camera Section - Front & Rear */}
+            <View style={styles.cameraSection}>
+              {/* Front Camera (back-facing lens = forward view) */}
+              <View style={styles.cameraContainer}>
+                <View style={styles.cameraFrame}>
+                  {cameraPermission?.granted ? (
+                    <CameraView style={styles.cameraPreview} facing="back" />
+                  ) : (
+                    <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
+                      <Text style={styles.cameraPermissionIcon}>📷</Text>
+                      <Text style={styles.cameraPermissionText}>ნებართვა</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <Text style={styles.cameraLabel}>FRONT</Text>
+              </View>
+
+              {/* Rear Camera (front-facing lens = driver view) */}
+              <View style={styles.cameraContainer}>
+                <View style={styles.cameraFrame}>
+                  {cameraPermission?.granted ? (
+                    <CameraView style={styles.cameraPreview} facing="front" />
+                  ) : (
+                    <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
+                      <Text style={styles.cameraPermissionIcon}>📷</Text>
+                      <Text style={styles.cameraPermissionText}>ნებართვა</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <Text style={styles.cameraLabel}>REAR</Text>
               </View>
             </View>
 
@@ -1019,8 +1099,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    color: 'rgb(255, 255, 255)',
-    textShadowColor: 'rgb(255, 255, 255)',
     backgroundColor: 'rgba(0, 0, 0, 0)',
     borderWidth: 2,
     borderColor: 'rgb(101, 101, 101)',
@@ -1051,14 +1129,12 @@ const styles = StyleSheet.create({
     // borderColor: 'rgba(111, 255, 0, 0.98)'
   },
   landscapeCenterPanel: {
-    flex: 1.2,
+    flex: 1.4,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingHorizontal: 10,
-    paddingTop: 50,
-    paddingBottom: 10,
-    // borderWidth: 5,
-    // borderColor: 'rgba(0, 128, 255, 0.98)'
+    paddingHorizontal: 8,
+    paddingTop: 10,
+    paddingBottom: 8,
   },
 
   // ===== PORTRAIT LAYOUT =====
@@ -1084,15 +1160,82 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-evenly',
-    // borderWidth: 5,
-    // borderColor: 'rgba(0, 64, 255, 0.98)'
+    marginTop: 4,
   },
   portraitGaugeItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    // borderWidth: 5,
-    // borderColor: 'rgba(0, 64, 255, 0.98)'
   },
+
+  // ===== CAMERA SECTION =====
+  cameraSection: {
+    width: '90%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    gap: 8,
+  },
+  cameraContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  cameraFrame: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: 'rgb(10, 10, 10)',
+    borderWidth: 1,
+    borderColor: 'rgb(60, 60, 60)',
+  },
+  cameraPreview: {
+    flex: 1,
+  },
+  cameraPermissionBox: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+  cameraPermissionIcon: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  cameraPermissionText: {
+    color: 'rgb(153, 153, 153)',
+    fontSize: 11,
+  },
+  cameraLabel: {
+    color: 'rgb(153, 153, 153)',
+    fontSize: 11,
+    fontWeight: 'bold',
+    letterSpacing: 1.5,
+    marginTop: 4,
+  },
+
+  // ===== LANDSCAPE CAMERA STYLES =====
+  cameraSectionLand: {
+    flexDirection: 'row',
+    width: '100%',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    marginBottom: 6,
+    gap: 6,
+  },
+  cameraContainerLand: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  cameraFrameLand: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: 'rgb(10, 10, 10)',
+    borderWidth: 1,
+    borderColor: 'rgb(60, 60, 60)',
+  },
+
   speedAndTemperatureRow_Portrait: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -1182,15 +1325,15 @@ const styles = StyleSheet.create({
     // borderWidth: 5,
     // borderColor: 'rgba(78, 215, 151, 0.98)'
   },
-  // iconCircle: {
-  //   width: 35,
-  //   height: 35,
-  //   borderRadius: 18,
-  //   backgroundColor: 'rgba(255,255,255,0.05)',
-  //   alignItems: 'center',
-  //   justifyContent: 'center',
-  //   marginBottom: 6,
-  // },
+  iconCircle: {
+    width: 35,
+    height: 35,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
   speedIcon: {
     fontSize: 18,
   },
@@ -1235,14 +1378,12 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.24)',
     paddingHorizontal: 15,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 2,
     borderColor: 'rgb(101, 101, 101)',
-    marginTop: 50,
-    marginBottom: 0,    
-    // borderWidth: 5,
-    // borderColor: 'rgba(182, 222, 50, 0.98)'
+    marginTop: 8,
+    marginBottom: 0,
   },
   calibrateText: {
     color: 'rgb(101, 101, 101)',
