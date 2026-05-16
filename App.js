@@ -355,16 +355,19 @@ export default function App() {
         const isAvailable = await Accelerometer.isAvailableAsync();
         if (!isAvailable) {
           setSensorAvailable(false);
-          // სენსორი არ არის - შევთავაზოთ Bluetooth Receiver რეჟიმი
           Alert.alert(
             'სენსორი მიუწვდომელია',
-            'ამ მოწყობილობას არ აქვს accelerometer სენსორი.\n\nგსურთ Bluetooth-ით დაუკავშირდეთ ტელეფონს სენსორის მონაცემების მისაღებად?',
+            'ამ მოწყობილობას არ აქვს accelerometer სენსორი.\n\nაირჩიეთ სხვა მოწყობილობასთან დაკავშირების მეთოდი:',
             [
-              { text: 'არა', style: 'cancel' },
+              { text: 'გაუქმება', style: 'cancel' },
               {
-                text: 'დიახ, დაკავშირება',
-                onPress: () => startBluetoothReceiver()
-              }
+                text: '📶 WiFi / Hotspot',
+                onPress: () => setShowWifiModal(true),
+              },
+              {
+                text: '📡 Bluetooth',
+                onPress: () => startBluetoothReceiver(),
+              },
             ]
           );
           return;
@@ -383,13 +386,17 @@ export default function App() {
         setSensorAvailable(false);
         Alert.alert(
           'სენსორის შეცდომა',
-          'Accelerometer სენსორთან დაკავშირება ვერ მოხერხდა.\n\nგსურთ Bluetooth-ით დაუკავშირდეთ ტელეფონს?',
+          'Accelerometer სენსორთან დაკავშირება ვერ მოხერხდა.\n\nაირჩიეთ სხვა მოწყობილობასთან დაკავშირების მეთოდი:',
           [
-            { text: 'არა', style: 'cancel' },
+            { text: 'გაუქმება', style: 'cancel' },
             {
-              text: 'დიახ, დაკავშირება',
-              onPress: () => startBluetoothReceiver()
-            }
+              text: '📶 WiFi / Hotspot',
+              onPress: () => setShowWifiModal(true),
+            },
+            {
+              text: '📡 Bluetooth',
+              onPress: () => startBluetoothReceiver(),
+            },
           ]
         );
       }
@@ -514,6 +521,46 @@ export default function App() {
     setBluetoothDeviceName(null);
   };
 
+  // ===== WIFI FUNCTIONS =====
+
+  const connectWifi = async () => {
+    const ip = wifiIpInput.trim();
+    if (!ip) return;
+
+    setIsConnecting(true);
+
+    WiFiSensorService.setOnDataReceived((data) => {
+      if (!data) return;
+      setRawPitch(data.pitch ?? 0);
+      setRawRoll(data.roll ?? 0);
+      if (data.altitude !== undefined) setAltitude(Math.round(data.altitude));
+      if (data.speed !== undefined) setSpeed(Math.round(data.speed));
+    });
+
+    WiFiSensorService.setOnConnectionChange((connected, connectedIp) => {
+      setWifiConnected(connected);
+      setWifiServerIp(connected ? connectedIp : '');
+      if (connected) {
+        setShowWifiModal(false);
+        Alert.alert('დაკავშირებულია', `WiFi სენსორთან კავშირი დამყარდა (${connectedIp})`);
+      }
+    });
+
+    try {
+      await WiFiSensorService.connectToServer(ip);
+    } catch (error) {
+      Alert.alert('WiFi შეცდომა', error.message);
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const disconnectWifi = () => {
+    WiFiSensorService.disconnect();
+    setWifiConnected(false);
+    setWifiServerIp('');
+  };
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -521,6 +568,7 @@ export default function App() {
         clearInterval(bluetoothSendInterval.current);
       }
       BluetoothSensorService.destroy();
+      WiFiSensorService.disconnect();
     };
   }, []);
 
@@ -662,17 +710,46 @@ export default function App() {
           <Text style={styles.menuButtonText}>☰</Text>
         </TouchableOpacity>
 
-        {/* Bluetooth Connection Indicator */}
-        {bluetoothConnected && (
-          <View style={styles.bluetoothIndicator}>
-            <Text style={styles.bluetoothIndicatorText}>
-              📶 {bluetoothDeviceName}
+        {/* WiFi Connection Indicator */}
+        {wifiConnected && (
+          <View style={styles.wifiIndicator}>
+            <Text style={styles.wifiIndicatorText}>
+              📶 WiFi {wifiServerIp}
             </Text>
           </View>
         )}
 
-        {/* Bluetooth Button - Rotation-ის ქვემოთ მარჯვნივ */}
-        {sensorAvailable && !bluetoothConnected && (
+        {/* Bluetooth Connection Indicator */}
+        {bluetoothConnected && !wifiConnected && (
+          <View style={styles.bluetoothIndicator}>
+            <Text style={styles.bluetoothIndicatorText}>
+              📡 {bluetoothDeviceName}
+            </Text>
+          </View>
+        )}
+
+        {/* WiFi Connect Button (სენსორი არ არის და არ არის დაკავშირებული) */}
+        {!sensorAvailable && !wifiConnected && !bluetoothConnected && (
+          <TouchableOpacity
+            style={styles.wifiButton}
+            onPress={() => setShowWifiModal(true)}
+          >
+            <Text style={styles.bluetoothButtonText}>📶</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* WiFi Disconnect Button */}
+        {wifiConnected && (
+          <TouchableOpacity
+            style={styles.bluetoothDisconnectButton}
+            onPress={disconnectWifi}
+          >
+            <Text style={styles.bluetoothButtonText}>✕</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Bluetooth Button */}
+        {sensorAvailable && !bluetoothConnected && !wifiConnected && (
           <TouchableOpacity
             style={styles.bluetoothButton}
             onPress={startBluetoothSender}
@@ -682,7 +759,7 @@ export default function App() {
         )}
 
         {/* Bluetooth Disconnect Button */}
-        {bluetoothConnected && (
+        {bluetoothConnected && !wifiConnected && (
           <TouchableOpacity
             style={styles.bluetoothDisconnectButton}
             onPress={disconnectBluetooth}
@@ -773,6 +850,31 @@ export default function App() {
                   </TouchableOpacity>
                 </View>
 
+                {/* WiFi / Hotspot Section */}
+                {!sensorAvailable && (
+                  <View style={styles.menuSection}>
+                    <Text style={styles.menuSectionTitle}>📶 WiFi / Hotspot სენსორი</Text>
+                    <Text style={styles.menuSectionSubtitle}>
+                      სენსორიანი ტელეფონი: გახსენით აპი, ჩართეთ Hotspot, ჩაუწერეთ IP მისამართი ქვემოთ
+                    </Text>
+                    {wifiConnected ? (
+                      <TouchableOpacity
+                        style={styles.disconnectWifiButton}
+                        onPress={() => { disconnectWifi(); setShowMenu(false); }}
+                      >
+                        <Text style={styles.disconnectWifiButtonText}>✕ გათიშვა ({wifiServerIp})</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.uploadButton}
+                        onPress={() => { setShowMenu(false); setShowWifiModal(true); }}
+                      >
+                        <Text style={styles.uploadButtonText}>📶 WiFi-ით დაკავშირება</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+
                 {/* Bluetooth Section */}
                 {!sensorAvailable && (
                   <View style={styles.menuSection}>
@@ -780,15 +882,24 @@ export default function App() {
                     <Text style={styles.menuSectionSubtitle}>
                       დაუკავშირდით ტელეფონს სენსორის მონაცემების მისაღებად
                     </Text>
-                    <TouchableOpacity
-                      style={styles.uploadButton}
-                      onPress={() => {
-                        setShowMenu(false);
-                        startBluetoothReceiver();
-                      }}
-                    >
-                      <Text style={styles.uploadButtonText}>🔍 მოწყობილობების ძებნა</Text>
-                    </TouchableOpacity>
+                    {bluetoothConnected ? (
+                      <TouchableOpacity
+                        style={styles.disconnectWifiButton}
+                        onPress={() => { disconnectBluetooth(); setShowMenu(false); }}
+                      >
+                        <Text style={styles.disconnectWifiButtonText}>✕ გათიშვა ({bluetoothDeviceName})</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.uploadButton}
+                        onPress={() => {
+                          setShowMenu(false);
+                          startBluetoothReceiver();
+                        }}
+                      >
+                        <Text style={styles.uploadButtonText}>🔍 მოწყობილობების ძებნა</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 )}
               </ScrollView>
@@ -809,6 +920,56 @@ export default function App() {
           isLandscape={isLandscape}
           onToggle={toggleOrientation}
         />
+
+        {/* WiFi Connection Modal */}
+        <Modal
+          visible={showWifiModal}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowWifiModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>📶 WiFi სენსორი</Text>
+              <Text style={styles.modalSubtitle}>
+                სენსორიანი ტელეფონი:{'\n'}
+                1. გახსენით ეს აპი{'\n'}
+                2. ჩართეთ Hotspot{'\n'}
+                3. გახსენით Settings → Hotspot → IP მისამართი
+              </Text>
+
+              <TextInput
+                style={styles.ipInput}
+                placeholder="192.168.x.x"
+                placeholderTextColor="rgb(100, 100, 100)"
+                value={wifiIpInput}
+                onChangeText={setWifiIpInput}
+                keyboardType="numeric"
+                autoCorrect={false}
+              />
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={styles.modalButton}
+                  onPress={() => setShowWifiModal(false)}
+                >
+                  <Text style={styles.modalButtonText}>გაუქმება</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonPrimary, isConnecting && { opacity: 0.6 }]}
+                  onPress={connectWifi}
+                  disabled={isConnecting}
+                >
+                  {isConnecting ? (
+                    <ActivityIndicator size="small" color="black" />
+                  ) : (
+                    <Text style={styles.modalButtonTextPrimary}>დაკავშირება</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* Bluetooth Device Selection Modal */}
         <Modal
@@ -1393,6 +1554,67 @@ const styles = StyleSheet.create({
   },
 
   // ===== BLUETOOTH STYLES =====
+  // ===== WIFI INDICATOR & BUTTONS =====
+  wifiIndicator: {
+    position: 'absolute',
+    top: 60,
+    right: 15,
+    backgroundColor: 'rgba(0, 229, 100, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: 'rgb(0, 229, 100)',
+    zIndex: 100,
+  },
+  wifiIndicatorText: {
+    color: 'rgb(0, 229, 100)',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  wifiButton: {
+    position: 'absolute',
+    top: 80,
+    right: 15,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: 'rgb(0, 229, 100)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+  },
+  ipInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgb(0, 229, 100)',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: 'white',
+    fontSize: 18,
+    textAlign: 'center',
+    letterSpacing: 2,
+    marginVertical: 16,
+    width: '100%',
+  },
+  disconnectWifiButton: {
+    backgroundColor: 'rgba(255, 100, 100, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgb(255, 100, 100)',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  disconnectWifiButtonText: {
+    color: 'rgb(255, 100, 100)',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+
+  // ===== BLUETOOTH INDICATOR & BUTTONS =====
   bluetoothIndicator: {
     position: 'absolute',
     top: 60,
@@ -1403,9 +1625,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     borderWidth: 1,
     borderColor: 'rgb(0, 229, 255)',
-    zIndex: 100,    
-    // borderWidth: 5,
-    // borderColor: 'rgba(182, 222, 50, 0.98)'
+    zIndex: 100,
   },
   bluetoothIndicatorText: {
     color: 'rgb(0, 229, 255)',
@@ -1419,14 +1639,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    // backgroundColor: 'rgba(0, 0, 0, 0.5)',
     borderWidth: 2,
     borderColor: 'rgb(101, 101, 101)',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 100,    
-    // borderWidth: 5,
-    // borderColor: 'rgba(182, 222, 50, 0.98)'
+    zIndex: 100,
   },
   bluetoothDisconnectButton: {
     position: 'absolute',
@@ -1440,9 +1657,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgb(255, 100, 100)',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 100,    
-    // borderWidth: 5,
-    // borderColor: 'rgba(182, 222, 50, 0.98)'
+    zIndex: 100,
   },
   bluetoothButtonText: {
     fontSize: 18,
