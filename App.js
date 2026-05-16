@@ -1257,11 +1257,12 @@ export default function App() {
                 <View style={styles.cameraFrameHalf}>
                   {cameraPermission?.granted ? (
                     <WebView
-                      source={{ html: REAR_CAMERA_HTML }}
-                      style={styles.cameraPreview}
+                      source={{ html: REAR_CAMERA_HTML, baseUrl: 'http://localhost/' }}
+                      style={StyleSheet.absoluteFill}
                       allowsInlineMediaPlayback={true}
                       mediaPlaybackRequiresUserAction={false}
                       javaScriptEnabled={true}
+                      originWhitelist={['*']}
                       scrollEnabled={false}
                     />
                   ) : (
