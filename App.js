@@ -50,7 +50,9 @@ const ROUND_BG = require('./assets/images/round.png');
 const SPEED_BG = require('./assets/images/speed.png');
 const TEMP_BG = require('./assets/images/temperature.png');
 
-// Front-facing camera stream via WebView getUserMedia (separate renderer process)
+// Front-facing camera stream via WebView getUserMedia (separate renderer process).
+// baseUrl:'http://localhost/' makes Android WebView treat this as a secure context
+// so getUserMedia is allowed.
 const REAR_CAMERA_HTML = `<!DOCTYPE html>
 <html>
 <head>
@@ -67,9 +69,19 @@ const REAR_CAMERA_HTML = `<!DOCTYPE html>
     (function(){
       var v=document.getElementById('v');
       if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){return;}
-      navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false})
-        .then(function(s){v.srcObject=s;})
-        .catch(function(){});
+      var attempts=[
+        {video:{facingMode:'user'},audio:false},
+        {video:{facingMode:{ideal:'user'}},audio:false},
+        {video:{facingMode:'environment'},audio:false},
+        {video:true,audio:false}
+      ];
+      function tryNext(i){
+        if(i>=attempts.length)return;
+        navigator.mediaDevices.getUserMedia(attempts[i])
+          .then(function(s){v.srcObject=s;})
+          .catch(function(){tryNext(i+1);});
+      }
+      tryNext(0);
     })();
   </script>
 </body>
@@ -1110,11 +1122,12 @@ export default function App() {
                   <View style={styles.cameraFrameLand}>
                     {cameraPermission?.granted ? (
                       <WebView
-                        source={{ html: REAR_CAMERA_HTML }}
+                        source={{ html: REAR_CAMERA_HTML, baseUrl: 'http://localhost/' }}
                         style={styles.cameraPreview}
                         allowsInlineMediaPlayback={true}
                         mediaPlaybackRequiresUserAction={false}
                         javaScriptEnabled={true}
+                        originWhitelist={['*']}
                         scrollEnabled={false}
                       />
                     ) : (
@@ -1316,11 +1329,12 @@ export default function App() {
           <View style={styles.cameraFsSlot}>
             {cameraPermission?.granted ? (
               <WebView
-                source={{ html: REAR_CAMERA_HTML }}
+                source={{ html: REAR_CAMERA_HTML, baseUrl: 'http://localhost/' }}
                 style={{ flex: 1 }}
                 allowsInlineMediaPlayback={true}
                 mediaPlaybackRequiresUserAction={false}
                 javaScriptEnabled={true}
+                originWhitelist={['*']}
                 scrollEnabled={false}
               />
             ) : (
