@@ -337,7 +337,7 @@ export default function App() {
         if (isLandscape) {
           await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
         } else {
-          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT);
+          await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
         }
         setIsOrientationLocked(true);
       }
@@ -1107,7 +1107,9 @@ export default function App() {
                 <View style={styles.cameraHalfLand}>
                   <View style={styles.cameraFrameLand}>
                     {cameraPermission?.granted ? (
-                      <CameraView style={styles.cameraPreview} facing="back" />
+                      !cameraFullscreen ? (
+                        <CameraView style={styles.cameraPreview} facing="back" />
+                      ) : null
                     ) : (
                       <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
                         <Text style={styles.cameraPermissionIcon}>📷</Text>
@@ -1121,15 +1123,17 @@ export default function App() {
                 <View style={styles.cameraHalfLand}>
                   <View style={styles.cameraFrameLand}>
                     {cameraPermission?.granted ? (
-                      <WebView
-                        source={{ html: REAR_CAMERA_HTML, baseUrl: 'http://localhost/' }}
-                        style={styles.cameraPreview}
-                        allowsInlineMediaPlayback={true}
-                        mediaPlaybackRequiresUserAction={false}
-                        javaScriptEnabled={true}
-                        originWhitelist={['*']}
-                        scrollEnabled={false}
-                      />
+                      !cameraFullscreen ? (
+                        <WebView
+                          source={{ html: REAR_CAMERA_HTML, baseUrl: 'http://localhost/' }}
+                          style={styles.cameraPreview}
+                          allowsInlineMediaPlayback={true}
+                          mediaPlaybackRequiresUserAction={false}
+                          javaScriptEnabled={true}
+                          originWhitelist={['*']}
+                          scrollEnabled={false}
+                        />
+                      ) : null
                     ) : (
                       <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
                         <Text style={styles.cameraPermissionIcon}>📷</Text>
@@ -1241,7 +1245,9 @@ export default function App() {
               <View style={styles.cameraHalf}>
                 <View style={styles.cameraFrameHalf}>
                   {cameraPermission?.granted ? (
-                    <CameraView style={styles.cameraPreview} facing="back" />
+                    !cameraFullscreen ? (
+                      <CameraView style={styles.cameraPreview} facing="back" />
+                    ) : null
                   ) : (
                     <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
                       <Text style={styles.cameraPermissionIcon}>📷</Text>
@@ -1256,15 +1262,17 @@ export default function App() {
               <View style={styles.cameraHalf}>
                 <View style={styles.cameraFrameHalf}>
                   {cameraPermission?.granted ? (
-                    <WebView
-                      source={{ html: REAR_CAMERA_HTML, baseUrl: 'http://localhost/' }}
-                      style={StyleSheet.absoluteFill}
-                      allowsInlineMediaPlayback={true}
-                      mediaPlaybackRequiresUserAction={false}
-                      javaScriptEnabled={true}
-                      originWhitelist={['*']}
-                      scrollEnabled={false}
-                    />
+                    !cameraFullscreen ? (
+                      <WebView
+                        source={{ html: REAR_CAMERA_HTML, baseUrl: 'http://localhost/' }}
+                        style={StyleSheet.absoluteFill}
+                        allowsInlineMediaPlayback={true}
+                        mediaPlaybackRequiresUserAction={false}
+                        javaScriptEnabled={true}
+                        originWhitelist={['*']}
+                        scrollEnabled={false}
+                      />
+                    ) : null
                   ) : (
                     <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
                       <Text style={styles.cameraPermissionIcon}>📷</Text>
