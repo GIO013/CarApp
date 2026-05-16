@@ -72,6 +72,12 @@
           "photosPermission": "Allow Car Dashboard to access your photos to customize car images."
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Car Dashboard to access the camera for front and rear dashcam views."
+        }
+      ],
       "./plugins/withAndroidFeatures.js",
       "./plugins/withWidget.js",
       "./plugins/withWidgetModule.js"
