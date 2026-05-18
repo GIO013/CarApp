@@ -29,7 +29,11 @@ class BluetoothSensorService {
   // ინიციალიზაცია
   async initialize() {
     if (!this.manager) {
-      this.manager = new BleManager();
+      try {
+        this.manager = new BleManager();
+      } catch (e) {
+        throw new Error('Bluetooth არ არის ხელმისაწვდომი ამ მოწყობილობაზე');
+      }
     }
 
     // Android permissions

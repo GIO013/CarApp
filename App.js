@@ -394,21 +394,6 @@ export default function App() {
         const isAvailable = await Accelerometer.isAvailableAsync();
         if (!isAvailable) {
           setSensorAvailable(false);
-          Alert.alert(
-            'სენსორი მიუწვდომელია',
-            'ამ მოწყობილობას არ აქვს accelerometer სენსორი.\n\nაირჩიეთ სხვა მოწყობილობასთან დაკავშირების მეთოდი:',
-            [
-              { text: 'გაუქმება', style: 'cancel' },
-              {
-                text: '📶 WiFi / Hotspot',
-                onPress: () => setShowWifiModal(true),
-              },
-              {
-                text: '📡 Bluetooth',
-                onPress: () => startBluetoothReceiver(),
-              },
-            ]
-          );
           return;
         }
 
@@ -423,21 +408,6 @@ export default function App() {
       } catch (error) {
         console.log('Accelerometer error:', error);
         setSensorAvailable(false);
-        Alert.alert(
-          'სენსორის შეცდომა',
-          'Accelerometer სენსორთან დაკავშირება ვერ მოხერხდა.\n\nაირჩიეთ სხვა მოწყობილობასთან დაკავშირების მეთოდი:',
-          [
-            { text: 'გაუქმება', style: 'cancel' },
-            {
-              text: '📶 WiFi / Hotspot',
-              onPress: () => setShowWifiModal(true),
-            },
-            {
-              text: '📡 Bluetooth',
-              onPress: () => startBluetoothReceiver(),
-            },
-          ]
-        );
       }
     };
 
