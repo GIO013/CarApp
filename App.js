@@ -170,9 +170,10 @@ export default function App() {
         Alert.alert('Permission required', 'Location access needed for altitude & speed.');
       }
 
-      // Check camera hardware before requesting permission.
-      // Car monitors sometimes have no camera; two CameraViews on a device
-      // without camera hardware causes an OOM kill after a few seconds.
+      // Check camera hardware availability.
+      // Default to true on any error — isAvailableAsync is unreliable on some
+      // builds and it's better to try and show a black frame than to block cameras
+      // on a device that actually has them.
       try {
         const hasHardware = await CameraView.isAvailableAsync();
         setCameraAvailable(hasHardware);
@@ -180,8 +181,9 @@ export default function App() {
           await requestCameraPermission();
         }
       } catch {
-        // If the check itself fails, assume no camera to stay safe.
-        setCameraAvailable(false);
+        // isAvailableAsync not supported on this build — assume hardware present.
+        setCameraAvailable(true);
+        await requestCameraPermission();
       }
 
       // Restore user-saved camera toggle preference.
