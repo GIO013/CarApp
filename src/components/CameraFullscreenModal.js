@@ -1,6 +1,8 @@
 import React from 'react';
 import { Modal, View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { CameraView } from 'expo-camera';
+import { WebView } from 'react-native-webview';
+import { REAR_CAMERA_HTML } from '../constants/cameraHtml';
 
 const CameraFullscreenModal = ({ visible, onClose, cameraPermission, isLandscape }) => (
   <Modal
@@ -24,7 +26,16 @@ const CameraFullscreenModal = ({ visible, onClose, cameraPermission, isLandscape
 
       <View style={styles.slot}>
         {cameraPermission?.granted ? (
-          <CameraView key="fs-front" style={{ flex: 1 }} facing="front" />
+          <WebView
+            key="fs-front"
+            source={{ html: REAR_CAMERA_HTML, baseUrl: 'http://localhost/' }}
+            style={{ flex: 1 }}
+            allowsInlineMediaPlayback={true}
+            mediaPlaybackRequiresUserAction={false}
+            javaScriptEnabled={true}
+            originWhitelist={['*']}
+            scrollEnabled={false}
+          />
         ) : (
           <View style={styles.inactive} />
         )}

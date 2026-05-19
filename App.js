@@ -19,6 +19,8 @@ import { useKeepAwake } from 'expo-keep-awake';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { WebView } from 'react-native-webview';
+import { REAR_CAMERA_HTML } from './src/constants/cameraHtml';
 import WiFiSensorService from './services/WiFiSensorService';
 import BluetoothSensorService from './services/BluetoothSensorService';
 import Gauge from './src/components/Gauge';
@@ -650,7 +652,15 @@ export default function App() {
                     {showCameras ? (
                       cameraPermission?.granted ? (
                         !cameraFullscreen ? (
-                          <CameraView key="land-front" style={styles.cameraPreview} facing="front" />
+                          <WebView
+                            source={{ html: REAR_CAMERA_HTML, baseUrl: 'http://localhost/' }}
+                            style={styles.cameraPreview}
+                            allowsInlineMediaPlayback={true}
+                            mediaPlaybackRequiresUserAction={false}
+                            javaScriptEnabled={true}
+                            originWhitelist={['*']}
+                            scrollEnabled={false}
+                          />
                         ) : null
                       ) : (
                         <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
@@ -784,7 +794,15 @@ export default function App() {
                   {showCameras ? (
                     cameraPermission?.granted ? (
                       !cameraFullscreen ? (
-                        <CameraView key="port-front" style={StyleSheet.absoluteFill} facing="front" />
+                        <WebView
+                          source={{ html: REAR_CAMERA_HTML, baseUrl: 'http://localhost/' }}
+                          style={StyleSheet.absoluteFill}
+                          allowsInlineMediaPlayback={true}
+                          mediaPlaybackRequiresUserAction={false}
+                          javaScriptEnabled={true}
+                          originWhitelist={['*']}
+                          scrollEnabled={false}
+                        />
                       ) : null
                     ) : (
                       <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
