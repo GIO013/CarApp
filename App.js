@@ -19,8 +19,6 @@ import { useKeepAwake } from 'expo-keep-awake';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { WebView } from 'react-native-webview';
-
 import WiFiSensorService from './services/WiFiSensorService';
 import BluetoothSensorService from './services/BluetoothSensorService';
 import Gauge from './src/components/Gauge';
@@ -30,7 +28,6 @@ import WiFiModal from './src/components/WiFiModal';
 import BluetoothModal from './src/components/BluetoothModal';
 import CameraFullscreenModal from './src/components/CameraFullscreenModal';
 import Toast from './src/components/Toast';
-import { REAR_CAMERA_HTML } from './src/constants/cameraHtml';
 
 const WidgetModule = NativeModules.WidgetModule;
 
@@ -99,7 +96,7 @@ export default function App() {
   const roll = Math.round((isLandscape ? rawRoll : rawPitch) - (isLandscape ? rollOffset : pitchOffset));
   const pitch = Math.round((isLandscape ? rawPitch : rawRoll) - (isLandscape ? pitchOffset : rollOffset));
 
-  // true only when it is safe to render CameraView / WebView
+  // true only when it is safe to render CameraView instances
   const showCameras = cameraAvailable === true && camerasEnabled;
 
   // ===== RESPONSIVE SIZING =====
@@ -115,14 +112,17 @@ export default function App() {
   const updateWidget = useCallback(async () => {
     if (Platform.OS !== 'android' || !WidgetModule) return;
     const now = Date.now();
-    if (now - lastWidgetUpdate.current < 2000) return;
+    // On sensor-less (monitor) devices data arrives via WiFi/BT at low frequency;
+    // use a longer interval to reduce sendBroadcast load on older Android.
+    const interval = sensorAvailable ? 2000 : 5000;
+    if (now - lastWidgetUpdate.current < interval) return;
     lastWidgetUpdate.current = now;
     try {
       await WidgetModule.updateWidgetData(pitch, roll, altitude, speed, temperature || 0);
     } catch (error) {
       console.log('Widget update error:', error);
     }
-  }, [pitch, roll, altitude, speed, temperature]);
+  }, [pitch, roll, altitude, speed, temperature, sensorAvailable]);
 
   useEffect(() => {
     updateWidget();
@@ -171,7 +171,7 @@ export default function App() {
       }
 
       // Check camera hardware before requesting permission.
-      // Car monitors often have no camera; CameraView + WebView on a device
+      // Car monitors sometimes have no camera; two CameraViews on a device
       // without camera hardware causes an OOM kill after a few seconds.
       try {
         const hasHardware = await CameraView.isAvailableAsync();
@@ -624,7 +624,7 @@ export default function App() {
                     {showCameras ? (
                       cameraPermission?.granted ? (
                         !cameraFullscreen ? (
-                          <CameraView style={styles.cameraPreview} facing="back" />
+                          <CameraView key="land-back" style={styles.cameraPreview} facing="back" />
                         ) : null
                       ) : (
                         <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
@@ -648,15 +648,7 @@ export default function App() {
                     {showCameras ? (
                       cameraPermission?.granted ? (
                         !cameraFullscreen ? (
-                          <WebView
-                            source={{ html: REAR_CAMERA_HTML, baseUrl: 'http://localhost/' }}
-                            style={styles.cameraPreview}
-                            allowsInlineMediaPlayback={true}
-                            mediaPlaybackRequiresUserAction={false}
-                            javaScriptEnabled={true}
-                            originWhitelist={['*']}
-                            scrollEnabled={false}
-                          />
+                          <CameraView key="land-front" style={styles.cameraPreview} facing="front" />
                         ) : null
                       ) : (
                         <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
@@ -765,7 +757,7 @@ export default function App() {
                   {showCameras ? (
                     cameraPermission?.granted ? (
                       !cameraFullscreen ? (
-                        <CameraView style={styles.cameraPreview} facing="back" />
+                        <CameraView key="port-back" style={styles.cameraPreview} facing="back" />
                       ) : null
                     ) : (
                       <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
@@ -790,15 +782,7 @@ export default function App() {
                   {showCameras ? (
                     cameraPermission?.granted ? (
                       !cameraFullscreen ? (
-                        <WebView
-                          source={{ html: REAR_CAMERA_HTML, baseUrl: 'http://localhost/' }}
-                          style={StyleSheet.absoluteFill}
-                          allowsInlineMediaPlayback={true}
-                          mediaPlaybackRequiresUserAction={false}
-                          javaScriptEnabled={true}
-                          originWhitelist={['*']}
-                          scrollEnabled={false}
-                        />
+                        <CameraView key="port-front" style={StyleSheet.absoluteFill} facing="front" />
                       ) : null
                     ) : (
                       <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
