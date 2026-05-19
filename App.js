@@ -41,6 +41,7 @@ const DEFAULT_CAR_SIDE_IMAGE = require('./assets/images/car-side.png');
 
 const STORAGE_KEY_CAR_REAR = '@car_rear_image';
 const STORAGE_KEY_CAR_SIDE = '@car_side_image';
+const STORAGE_KEY_CAMERAS_ENABLED = '@cameras_enabled';
 
 // Suppress state updates when sensor change is below this threshold (degrees).
 // Prevents unnecessary re-renders from micro-vibrations.
@@ -53,6 +54,10 @@ export default function App() {
 
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [cameraFullscreen, setCameraFullscreen] = useState(false);
+  // null = not yet checked, true = hardware found, false = no camera hardware
+  const [cameraAvailable, setCameraAvailable] = useState(null);
+  // User-controlled toggle (persisted) — useful on monitor devices with no camera
+  const [camerasEnabled, setCamerasEnabled] = useState(true);
 
   const [rawPitch, setRawPitch] = useState(13);
   const [rawRoll, setRawRoll] = useState(-14);
@@ -93,6 +98,9 @@ export default function App() {
 
   const roll = Math.round((isLandscape ? rawRoll : rawPitch) - (isLandscape ? rollOffset : pitchOffset));
   const pitch = Math.round((isLandscape ? rawPitch : rawRoll) - (isLandscape ? pitchOffset : rollOffset));
+
+  // true only when it is safe to render CameraView / WebView
+  const showCameras = cameraAvailable === true && camerasEnabled;
 
   // ===== RESPONSIVE SIZING =====
   const altitudeFontSize = isLandscape
@@ -154,14 +162,35 @@ export default function App() {
     return () => subscription?.remove();
   }, []);
 
-  // ===== PERMISSIONS =====
+  // ===== PERMISSIONS + CAMERA HARDWARE CHECK =====
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission required', 'Location access needed for altitude & speed.');
       }
-      await requestCameraPermission();
+
+      // Check camera hardware before requesting permission.
+      // Car monitors often have no camera; CameraView + WebView on a device
+      // without camera hardware causes an OOM kill after a few seconds.
+      try {
+        const hasHardware = await CameraView.isAvailableAsync();
+        setCameraAvailable(hasHardware);
+        if (hasHardware) {
+          await requestCameraPermission();
+        }
+      } catch {
+        // If the check itself fails, assume no camera to stay safe.
+        setCameraAvailable(false);
+      }
+
+      // Restore user-saved camera toggle preference.
+      try {
+        const saved = await AsyncStorage.getItem(STORAGE_KEY_CAMERAS_ENABLED);
+        if (saved === 'false') setCamerasEnabled(false);
+      } catch {
+        // ignore
+      }
     })();
   }, []);
 
@@ -256,6 +285,15 @@ export default function App() {
   const calibrate = () => {
     setPitchOffset(rawPitch);
     setRollOffset(rawRoll);
+  };
+
+  const toggleCameras = async (enabled) => {
+    setCamerasEnabled(enabled);
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY_CAMERAS_ENABLED, String(enabled));
+    } catch {
+      // ignore
+    }
   };
 
   // ===== BLUETOOTH =====
@@ -535,6 +573,9 @@ export default function App() {
           bluetoothDeviceName={bluetoothDeviceName}
           disconnectBluetooth={disconnectBluetooth}
           startBluetoothReceiver={startBluetoothReceiver}
+          camerasEnabled={camerasEnabled}
+          cameraAvailable={cameraAvailable}
+          onToggleCameras={toggleCameras}
         />
 
         <WiFiModal
@@ -580,14 +621,23 @@ export default function App() {
               <View style={styles.cameraSectionLand}>
                 <View style={styles.cameraHalfLand}>
                   <View style={styles.cameraFrameLand}>
-                    {cameraPermission?.granted ? (
-                      !cameraFullscreen ? (
-                        <CameraView style={styles.cameraPreview} facing="back" />
-                      ) : null
+                    {showCameras ? (
+                      cameraPermission?.granted ? (
+                        !cameraFullscreen ? (
+                          <CameraView style={styles.cameraPreview} facing="back" />
+                        ) : null
+                      ) : (
+                        <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
+                          <Text style={styles.cameraPermissionIcon}>📷</Text>
+                        </TouchableOpacity>
+                      )
                     ) : (
-                      <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
-                        <Text style={styles.cameraPermissionIcon}>📷</Text>
-                      </TouchableOpacity>
+                      <View style={styles.noCameraPlaceholder}>
+                        <Text style={styles.noCameraIcon}>📷</Text>
+                        <Text style={styles.noCameraText}>
+                          {cameraAvailable === false ? 'No Camera' : 'Disabled'}
+                        </Text>
+                      </View>
                     )}
                   </View>
                   <Text style={styles.cameraLabel}>FRONT</Text>
@@ -595,30 +645,41 @@ export default function App() {
 
                 <View style={styles.cameraHalfLand}>
                   <View style={styles.cameraFrameLand}>
-                    {cameraPermission?.granted ? (
-                      !cameraFullscreen ? (
-                        <WebView
-                          source={{ html: REAR_CAMERA_HTML, baseUrl: 'http://localhost/' }}
-                          style={styles.cameraPreview}
-                          allowsInlineMediaPlayback={true}
-                          mediaPlaybackRequiresUserAction={false}
-                          javaScriptEnabled={true}
-                          originWhitelist={['*']}
-                          scrollEnabled={false}
-                        />
-                      ) : null
+                    {showCameras ? (
+                      cameraPermission?.granted ? (
+                        !cameraFullscreen ? (
+                          <WebView
+                            source={{ html: REAR_CAMERA_HTML, baseUrl: 'http://localhost/' }}
+                            style={styles.cameraPreview}
+                            allowsInlineMediaPlayback={true}
+                            mediaPlaybackRequiresUserAction={false}
+                            javaScriptEnabled={true}
+                            originWhitelist={['*']}
+                            scrollEnabled={false}
+                          />
+                        ) : null
+                      ) : (
+                        <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
+                          <Text style={styles.cameraPermissionIcon}>📷</Text>
+                        </TouchableOpacity>
+                      )
                     ) : (
-                      <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
-                        <Text style={styles.cameraPermissionIcon}>📷</Text>
-                      </TouchableOpacity>
+                      <View style={styles.noCameraPlaceholder}>
+                        <Text style={styles.noCameraIcon}>📷</Text>
+                        <Text style={styles.noCameraText}>
+                          {cameraAvailable === false ? 'No Camera' : 'Disabled'}
+                        </Text>
+                      </View>
                     )}
                   </View>
                   <Text style={styles.cameraLabel}>REAR</Text>
                 </View>
 
-                <TouchableOpacity style={styles.cameraExpandBtnFloat} onPress={() => setCameraFullscreen(true)}>
-                  <Text style={styles.cameraExpandIcon}>⛶</Text>
-                </TouchableOpacity>
+                {showCameras && (
+                  <TouchableOpacity style={styles.cameraExpandBtnFloat} onPress={() => setCameraFullscreen(true)}>
+                    <Text style={styles.cameraExpandIcon}>⛶</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
               <View style={styles.speedAndTemperatureRow_Land}>
@@ -701,15 +762,24 @@ export default function App() {
             <View style={styles.cameraSection}>
               <View style={styles.cameraHalf}>
                 <View style={styles.cameraFrameHalf}>
-                  {cameraPermission?.granted ? (
-                    !cameraFullscreen ? (
-                      <CameraView style={styles.cameraPreview} facing="back" />
-                    ) : null
+                  {showCameras ? (
+                    cameraPermission?.granted ? (
+                      !cameraFullscreen ? (
+                        <CameraView style={styles.cameraPreview} facing="back" />
+                      ) : null
+                    ) : (
+                      <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
+                        <Text style={styles.cameraPermissionIcon}>📷</Text>
+                        <Text style={styles.cameraPermissionText}>ნებართვა</Text>
+                      </TouchableOpacity>
+                    )
                   ) : (
-                    <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
-                      <Text style={styles.cameraPermissionIcon}>📷</Text>
-                      <Text style={styles.cameraPermissionText}>ნებართვა</Text>
-                    </TouchableOpacity>
+                    <View style={styles.noCameraPlaceholder}>
+                      <Text style={styles.noCameraIcon}>📷</Text>
+                      <Text style={styles.noCameraText}>
+                        {cameraAvailable === false ? 'No Camera' : 'Disabled'}
+                      </Text>
+                    </View>
                   )}
                 </View>
                 <Text style={styles.cameraLabel}>FRONT</Text>
@@ -717,31 +787,42 @@ export default function App() {
 
               <View style={styles.cameraHalf}>
                 <View style={styles.cameraFrameHalf}>
-                  {cameraPermission?.granted ? (
-                    !cameraFullscreen ? (
-                      <WebView
-                        source={{ html: REAR_CAMERA_HTML, baseUrl: 'http://localhost/' }}
-                        style={StyleSheet.absoluteFill}
-                        allowsInlineMediaPlayback={true}
-                        mediaPlaybackRequiresUserAction={false}
-                        javaScriptEnabled={true}
-                        originWhitelist={['*']}
-                        scrollEnabled={false}
-                      />
-                    ) : null
+                  {showCameras ? (
+                    cameraPermission?.granted ? (
+                      !cameraFullscreen ? (
+                        <WebView
+                          source={{ html: REAR_CAMERA_HTML, baseUrl: 'http://localhost/' }}
+                          style={StyleSheet.absoluteFill}
+                          allowsInlineMediaPlayback={true}
+                          mediaPlaybackRequiresUserAction={false}
+                          javaScriptEnabled={true}
+                          originWhitelist={['*']}
+                          scrollEnabled={false}
+                        />
+                      ) : null
+                    ) : (
+                      <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
+                        <Text style={styles.cameraPermissionIcon}>📷</Text>
+                        <Text style={styles.cameraPermissionText}>ნებართვა</Text>
+                      </TouchableOpacity>
+                    )
                   ) : (
-                    <TouchableOpacity style={styles.cameraPermissionBox} onPress={requestCameraPermission}>
-                      <Text style={styles.cameraPermissionIcon}>📷</Text>
-                      <Text style={styles.cameraPermissionText}>ნებართვა</Text>
-                    </TouchableOpacity>
+                    <View style={styles.noCameraPlaceholder}>
+                      <Text style={styles.noCameraIcon}>📷</Text>
+                      <Text style={styles.noCameraText}>
+                        {cameraAvailable === false ? 'No Camera' : 'Disabled'}
+                      </Text>
+                    </View>
                   )}
                 </View>
                 <Text style={styles.cameraLabel}>REAR</Text>
               </View>
 
-              <TouchableOpacity style={styles.cameraExpandBtnFloat} onPress={() => setCameraFullscreen(true)}>
-                <Text style={styles.cameraExpandIcon}>⛶</Text>
-              </TouchableOpacity>
+              {showCameras && (
+                <TouchableOpacity style={styles.cameraExpandBtnFloat} onPress={() => setCameraFullscreen(true)}>
+                  <Text style={styles.cameraExpandIcon}>⛶</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             <View style={styles.speedAndTemperatureRow_Portrait}>
@@ -766,7 +847,7 @@ export default function App() {
       </View>
 
       <CameraFullscreenModal
-        visible={cameraFullscreen}
+        visible={cameraFullscreen && showCameras}
         onClose={() => setCameraFullscreen(false)}
         cameraPermission={cameraPermission}
         isLandscape={isLandscape}
@@ -834,6 +915,25 @@ const styles = StyleSheet.create({
   portraitGaugeItem: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  // ===== NO CAMERA PLACEHOLDER =====
+  noCameraPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  noCameraIcon: {
+    fontSize: 20,
+    opacity: 0.4,
+    marginBottom: 4,
+  },
+  noCameraText: {
+    color: 'rgb(80, 80, 80)',
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 1,
   },
 
   // ===== CAMERA SECTION =====

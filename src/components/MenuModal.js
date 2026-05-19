@@ -26,6 +26,9 @@ const MenuModal = ({
   bluetoothDeviceName,
   disconnectBluetooth,
   startBluetoothReceiver,
+  camerasEnabled,
+  cameraAvailable,
+  onToggleCameras,
 }) => (
   <Modal
     visible={visible}
@@ -82,6 +85,29 @@ const MenuModal = ({
               onPress={() => { calibrate(); onClose(); }}
             >
               <Text style={styles.calibrateMenuButtonText}>⚙ CALIBRATE / RESET ZERO</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Camera Toggle Section */}
+          <View style={styles.menuSection}>
+            <Text style={styles.menuSectionTitle}>📷 კამერები</Text>
+            {cameraAvailable === false ? (
+              <Text style={styles.menuSectionSubtitle}>
+                ამ მოწყობილობაზე კამერა არ არის ხელმისაწვდომი
+              </Text>
+            ) : (
+              <Text style={styles.menuSectionSubtitle}>
+                კამერების გამორთვა რესურსებს ათავისუფლებს ძველ ან სუსტ მოწყობილობებზე
+              </Text>
+            )}
+            <TouchableOpacity
+              style={[styles.toggleButton, camerasEnabled && styles.toggleButtonActive]}
+              onPress={() => onToggleCameras(!camerasEnabled)}
+              disabled={cameraAvailable === false}
+            >
+              <Text style={[styles.toggleButtonText, camerasEnabled && styles.toggleButtonTextActive]}>
+                {camerasEnabled ? '🟢 ჩართულია' : '⚫ გამორთულია'}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -284,6 +310,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  toggleButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderWidth: 2,
+    borderColor: 'rgb(80, 80, 80)',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    alignItems: 'center',
+  },
+  toggleButtonActive: {
+    backgroundColor: 'rgba(0, 229, 255, 0.15)',
+    borderColor: 'rgb(0, 229, 255)',
+  },
+  toggleButtonText: {
+    color: 'rgb(100, 100, 100)',
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  toggleButtonTextActive: {
+    color: 'rgb(0, 229, 255)',
   },
 });
 
