@@ -55,8 +55,9 @@ export default function App() {
   const [cameraFullscreen, setCameraFullscreen] = useState(false);
   // null = not yet checked, true = hardware found, false = no camera hardware
   const [cameraAvailable, setCameraAvailable] = useState(null);
-  // User-controlled toggle (persisted) — useful on monitor devices with no camera
-  const [camerasEnabled, setCamerasEnabled] = useState(true);
+  // User-controlled toggle (persisted) — cameras off by default; user enables on phone,
+  // this protects monitor devices from WebView GPU OOM crash on first launch.
+  const [camerasEnabled, setCamerasEnabled] = useState(false);
 
   const [rawPitch, setRawPitch] = useState(13);
   const [rawRoll, setRawRoll] = useState(-14);
@@ -189,9 +190,10 @@ export default function App() {
       }
 
       // Restore user-saved camera toggle preference.
+      // Default is false; only enable if user previously saved 'true'.
       try {
         const saved = await AsyncStorage.getItem(STORAGE_KEY_CAMERAS_ENABLED);
-        if (saved === 'false') setCamerasEnabled(false);
+        if (saved === 'true') setCamerasEnabled(true);
       } catch {
         // ignore
       }
